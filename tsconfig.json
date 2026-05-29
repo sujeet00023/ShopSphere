@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "backend/src/middleware/auth.js", "backend/src/routes/auth.js"  ],
   "exclude": ["node_modules"]
 }
