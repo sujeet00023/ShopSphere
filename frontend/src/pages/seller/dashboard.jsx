@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import apiClient from '@/utils/api'
+import apiClient from '../../utils/api'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import toast from 'react-hot-toast'
 

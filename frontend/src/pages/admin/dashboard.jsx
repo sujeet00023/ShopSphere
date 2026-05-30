@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {useAuthStore } from '@/store/authStore'
+import { useAuthStore } from '../../store/authStore'
 import apiClient from '../../utils/api'
-import {LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Cell } from  'rechart'
-import toast from 'react-got-toast'
+import {LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Cell } from  'recharts'
+import toast from 'react-hot-toast'
 
 const COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626', '#0891b2']
 
