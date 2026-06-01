@@ -5,7 +5,7 @@ import {useState} from 'react'
 import { useCartStore } from '../store/cartStore'
 import toast from 'react-hot-toast'
 
-export default function ProductGrid({ products, loading}){
+export default function ProductGrid({ products =[], loading}){
     const { addToCart } = useCartStore()
 
     const handleAddToCart = (product) =>{

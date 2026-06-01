@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import apiClient from '../utils/api'
-import Navigation from '../components/navigation'
 import ProductGrid from '../components/ProductGrid'
 import toast from 'react-hot-toast'
 
@@ -34,8 +33,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
-
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-primary via-accent to-purple-600 text-white py-20 md:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

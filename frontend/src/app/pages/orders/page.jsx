@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import apiClient from "../../utils/api"
+import apiClient from "../../../utils/api"
 import toast from "react-hot-toast"
 
 const STATUS_STEPS = ['PENDING', "CONFIRMED", "PROCESSING", 'SHIPPED', 'DELIVERED']

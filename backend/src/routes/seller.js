@@ -1,7 +1,7 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole } from '../middleware/auth.js'
-import { reverse } from 'lodash'
+
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -40,10 +40,15 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
         where: { sellerId: seller.id },
         take: 10,
         orderBy: { createdAt: 'desc' },
-        include: {
-          customer: { select: { name: true, email: true } },
-          items: { select: { _count: true } },
-        },
+       include: {
+  customer: {
+    select: {
+      name: true,
+      email: true,
+    },
+  },
+  items: true,
+}
       }),
       prisma.product.findMany({
         where: { sellerId: seller.id },

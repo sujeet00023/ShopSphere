@@ -12,6 +12,8 @@ import orderRoutes from './routes/orders.js'
 import categoryRoutes from './routes/categories.js'
 import userRoutes from './routes/users.js'
 import stripeRoutes from './routes/stripe.js'
+import adminRoute from './routes/admin.js'
+import sellerRoute from './routes/seller.js'
 
 config()
 
@@ -39,6 +41,8 @@ app.use('/api/cart', cartRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/stripe', stripeRoutes)
+app.use('/api/admin', adminRoute)
+app.use('/api/seller', sellerRoute)
 
 // Health check
 app.get('/api/health', (req, res) => {

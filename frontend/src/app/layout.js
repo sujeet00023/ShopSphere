@@ -1,6 +1,7 @@
 'use client'
 
 import { Toaster } from 'react-hot-toast'
+import Navigation from '../components/navigation'
 import './globals.css'
 
 export default function RootLayout({ children }) {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <Navigation />  {/* ✅ Add Navigation here */}
         {children}
         <Toaster position="bottom-right" />
       </body>
