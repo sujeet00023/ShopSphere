@@ -120,10 +120,10 @@ router.get('/sellers', authMiddleware, requireRole('ADMIN'), async(req, res) =>{
         const sellers = await prisma.sellerProfile.findMany({
             include:{
                 user: {
-                    select: {email: true, name: true, createdAt: ture},
+                    select: {email: true, name: true, createdAt: true},
 
                 },
-                _count: {select: {products: ture, orders: ture}}
+                _count: {select: {products: true, orders: true}}
             },
             orderBy: { totalEarnings: 'desc'}
         })
@@ -211,7 +211,7 @@ async function getMonthlyRevenue() {
     const months = {}
     const orders =await prisma.order.findMany({
         where: {paymentStatus:'COMPLETED'},
-        select: {createdAt: true, total: ture },
+        select: {createdAt: true, total: true },
     })
 
 orders.forEach(order =>{
