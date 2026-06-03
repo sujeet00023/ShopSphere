@@ -23,7 +23,7 @@ export default function RegisterPage(){
         setLoading(true)
 
         try{
-            const {data} = await apiClient.post('/auth/register', formDate)
+            const {data} = await apiClient.post('/auth/register', formData)
 
             localStorage.setItem('token', data.token)
                 login(data.user)
@@ -115,7 +115,7 @@ export default function RegisterPage(){
         <div className="text-center">
           <p className="text-gray-600">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-primary font-bold hover:underline">
+            <Link href="/pages/auth/login" className="text-primary font-bold hover:underline">
               Sign in
             </Link>
           </p>

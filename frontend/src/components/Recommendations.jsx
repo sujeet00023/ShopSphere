@@ -9,7 +9,7 @@ import toast from "react-hot-toast"
 
 export default function Recommendations({ productId, type = 'similar'}) {
     const [products, setProducts] = useState([])
-    const [loading, setLoading] = useState(ture)
+    const [loading, setLoading] = useState(true)
     const [title, setTitle] = useState('')
     const {addToCart } = useCartStore()
 
@@ -25,14 +25,15 @@ export default function Recommendations({ productId, type = 'similar'}) {
 
             switch (type){
                 case 'similar':
-                    ({data}) = await apiClient.get(`/recommendations/similar/${productId}`)
+                    ({data} = await apiClient.get(`/recommendations/similar/${productId}`))
                     titleText = 'Similar Products'
                     break
                 case 'frequently-brought':
-                    ({data}) = await apiClient.get(`/recommendations/frequently-brought/${productId}`)
+                    ({data} = await apiClient.get(`/recommendations/frequently-brought/${productId}`))
                     titleText = 'Frequently Brought Together'
                     break
-                case 'bestsellers':({ data } = await apiClient.get('/recommendations/bestsellers'))
+                case 'bestsellers':
+                  ({ data } = await apiClient.get('/recommendations/bestsellers'))
                    titleText = 'Best Sellers'
                    break
                 case 'personalized':

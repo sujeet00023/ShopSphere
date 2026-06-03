@@ -21,7 +21,7 @@ export default function CartPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
             <p className="text-gray-600 mb-6">Add some products to get started!</p>
             <Link
-              href="/products"
+              href="pages/products"
               className="inline-block bg-primary text-white px-6 py-3 rounded-lg font-bold hover:opacity-90"
             >
               Continue Shopping
@@ -131,9 +131,9 @@ export default function CartPage() {
               <button
                 onClick={() => {
                   if (user) {
-                    router.push('/checkout')
+                    router.push('/pages/checkout')
                   } else {
-                    router.push('/auth/login')
+                    router.push('/pages/auth/login')
                   }
                 }}
                 className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:opacity-90"

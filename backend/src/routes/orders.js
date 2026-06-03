@@ -8,26 +8,34 @@ const prisma = new PrismaClient()
 // ── POST /api/orders (create order from cart) ──────────────────────────────
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { shippingAddressId } = req.body
+    const { shipping } = req.body
 
-    if (!shippingAddressId) {
-      return res.status(400).json({ message: 'Shipping address is required.' })
-    }
+if (!shipping) {
+  return res.status(400).json({
+    message: 'Shipping information is required.'
+  })
+}
 
     // Get cart items
-    const cartItems = await prisma.cartItem.findMany({
-      where: { userId: req.user.id },
-      include: { product: true },
-    })
-
-    if (cartItems.length === 0) {
-      return res.status(400).json({ message: 'Cart is empty.' })
-    }
+if (!items || items.length === 0) {
+  return res.status(400).json({
+    message: 'Cart is empty.'
+  })
+}
 
     // Verify shipping address belongs to user
-    const address = await prisma.address.findUnique({
-      where: { id: shippingAddressId },
-    })
+   const address = await prisma.address.create({
+  data: {
+    userId: req.user.id,
+    fullName: shipping.fullName,
+    phone: shipping.phone,
+    street: shipping.street,
+    city: shipping.city,
+    state: shipping.state,
+    zipCode: shipping.zipCode,
+    country: shipping.country,
+  },
+})
 
     if (!address || address.userId !== req.user.id) {
       return res.status(400).json({ message: 'Invalid shipping address.' })
@@ -57,7 +65,7 @@ router.post('/', authMiddleware, async (req, res) => {
         data: {
           customerId: req.user.id,
           sellerId,
-          shippingId: shippingAddressId,
+          shippingId: address.id,
           subtotal: parseFloat(subtotal.toFixed(2)),
           tax: parseFloat(tax.toFixed(2)),
           total: parseFloat(total.toFixed(2)),

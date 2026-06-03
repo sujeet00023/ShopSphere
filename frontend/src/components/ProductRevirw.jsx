@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import apiClient from '@/utils/api'
-import { useAuthStore } from '@/store/authStore'
+import apiClient from '../utils/api'
+import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 import { comment } from 'postcss/lib/postcss'
 
