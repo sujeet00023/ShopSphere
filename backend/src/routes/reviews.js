@@ -1,7 +1,6 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole } from '../middleware/auth.js'
-import { update } from 'lodash'
 
 const router = express.Router()
 const prisma = new PrismaClient()

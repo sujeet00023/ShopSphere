@@ -3,15 +3,24 @@
 import Link from 'next/link'
 import {useState} from 'react'
 import { useCartStore } from '../store/cartStore'
+import apiClient from '../utils/api'
 import toast from 'react-hot-toast'
 
 export default function ProductGrid({ products =[], loading}){
     const { addToCart } = useCartStore()
 
-    const handleAddToCart = (product) =>{
-        addToCart(product, 1)
-        toast.success(`${product.name} add to cart`)
-    }
+   const handleAddToCart = async (product) => {
+  try {
+    await apiClient.post('/cart', {
+      productId: product.id,
+      quantity: 1,
+    })
+
+    toast.success(`${product.name} added to cart`)
+  } catch (err) {
+    toast.error(err.response?.data?.message || 'Failed to add to cart')
+  }
+}
 
     if(loading) {
         return (
@@ -33,19 +42,19 @@ export default function ProductGrid({ products =[], loading}){
 
 
     return (
-    <div>
-        {products.map(product =>(
-            <ProductGrid
-            key={product.id}
-            product={product}
-            onAddToCart = {() => handleAddToCart(product)}
-            />
-        ))}
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {products.map(product => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          onAddToCart={() => handleAddToCart(product)}
+        />
+      ))}
     </div>
     )
 
     function ProductCard({product, onAddToCart }) {
-        const discountPrice = product.price - (product.price * ( product.discountPct / 100 ))
+    const discountedPrice = product.price - (product.price * ( product.discountPct / 100 ))
 
         return (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
@@ -116,7 +125,7 @@ export default function ProductGrid({ products =[], loading}){
 
         {/* Add to Cart Button */}
         <button
-          onClick={onAddToCart}
+          onClick={() => handleAddToCart(product)}
           disabled={product.stock === 0}
           className={`w-full py-2 rounded-lg font-medium transition-colors ${
             product.stock === 0

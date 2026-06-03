@@ -8,11 +8,11 @@ import ProductGrid from "../../../components/ProductGrid"
 import toast from "react-hot-toast"
 
 export default function ProductPage(){
-    const SearchParams = useSearchParams()
-    const [Products, setProducts] = useState([])
+    const searchParams = useSearchParams()
+    const [products, setProducts] = useState([])
     const [categories, setCategories] = useState([])
     const [loading, setLoading] = useState([])
-  const [category, setCategory] = useState(searchParams.get('category') || '')
+    const [category, setCategory] = useState(searchParams.get('category') || '')
     
     const [sortBy, setSortBy] = useState('newest')
     const [page, setPage] = useState(1)
@@ -38,6 +38,7 @@ export default function ProductPage(){
             }
             const {data} = await apiClient.get('/products', {params })
             setProducts(data.data)
+            setPagination(data.pagination)
         }catch (err){
             toast.error('Failed to load products')
         }finally {

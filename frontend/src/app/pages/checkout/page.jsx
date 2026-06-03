@@ -1,6 +1,6 @@
 'use client'
 import { useState } from "react"
-import { useRouter } from "next/dist/client/router"
+import { useRouter } from "next/navigation"
 import apiClient from "../../../utils/api"
 import { useCartStore } from "../../../store/cartStore"
 import { useAuthStore } from "../../../store/authStore"
@@ -13,14 +13,15 @@ export default function CheckoutPage() {
     const {total} = getTotals()
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
-        fullName: user?.name || '',
-        email: user?.email || '',
-        phone: '',
-        street: '',
-        zipCode: '',
-        country: 'Inidia',
-
-    })
+  fullName: user?.name || '',
+  email: user?.email || '',
+  phone: '',
+  street: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  country: 'India',
+})
     const [paymentData, setPaymentData] = useState({
         cardName: '',
         cardNumber: '',
@@ -32,7 +33,7 @@ export default function CheckoutPage() {
         return (
             <div className="text-center py-12">
         <p className="text-gray-600 mb-4">No items in cart</p>
-        <a href="/cart" className="text-primary font-bold hover:underline">
+        <a href="/pages/cart" className="text-primary font-bold hover:underline">
           Back to Cart
         </a>
       </div>
@@ -63,7 +64,7 @@ export default function CheckoutPage() {
             })
 
             const PaymentRes = await apiClient.post('/stripe/create-payment-intent', {
-                corderId: data.data.id,
+                orderId: data.data.id,
                 amount: total,
             })
             
@@ -78,7 +79,7 @@ export default function CheckoutPage() {
 
             toast.success('Order placed successfully')
             clearCart()
-            router.push(`/orders/${data.data.id}`)
+            router.push(`/orders/${data.data[0].id}`)
         
         }catch (err) {
             toast.error(err.response?.data?.message || 'Checkout failed')

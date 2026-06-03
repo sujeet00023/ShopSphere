@@ -188,7 +188,7 @@ export default function Navigation(){
             </Link>
             {!user && (
               <Link
-                href="/auth/login"
+                href="pages/auth/login"
                 className="block px-4 py-2 text-primary font-medium hover:bg-blue-50 rounded-lg"
               >
                 Sign In
