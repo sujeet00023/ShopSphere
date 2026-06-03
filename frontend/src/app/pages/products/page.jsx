@@ -1,22 +1,26 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/immutability */
 'use client'
 
 import { useEffect, useState } from "react"
-import {useSearchParams } from "next/navigation"
 import apiClient from "../../../utils/api"
 import ProductGrid from "../../../components/ProductGrid"
 import toast from "react-hot-toast"
 
 export default function ProductPage(){
-    const searchParams = useSearchParams()
     const [products, setProducts] = useState([])
     const [categories, setCategories] = useState([])
-    const [loading, setLoading] = useState([])
-    const [category, setCategory] = useState(searchParams.get('category') || '')
+    const [loading, setLoading] = useState(false)
+    const [category, setCategory] = useState('')
     
     const [sortBy, setSortBy] = useState('newest')
     const [page, setPage] = useState(1)
     const [pagination, setPagination] = useState(null)
+
+    useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  setCategory(params.get('category') || '')
+}, [])
 
     useEffect(() =>{
         fetchProducts()
