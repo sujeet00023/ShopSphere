@@ -1,198 +1,181 @@
 /* eslint-disable react-hooks/immutability */
 'use client'
 
-import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
-import apiClient from "../../../utils/api"
-import toast from "react-hot-toast"
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import apiClient from '../../../utils/api'
+import { useAuthStore } from '../../../store/authStore'
+import toast from 'react-hot-toast'
 
-const STATUS_STEPS = ['PENDING', "CONFIRMED", "PROCESSING", 'SHIPPED', 'DELIVERED']
-
-export default function OrderTracking(){
-    const params = useParams()
-    const[order, setOrders] = useState(null)
-    const [loading, setLoading] = useState(true)
-
-    useEffect (() =>{
-        fetchOrder()
-    }, [params.id])
-
-
-    async function fetchOrder() {
-try{
-    const {data} = await apiClient.get(`/orders/${params.id}`)
-    setOrders(data.data)
-}        catch(err){
-    toast.error('Failed to load orders')
-}finally{
-    setLoading(false)
+const statusClass = s => {
+  const map = { DELIVERED:'s-delivered', SHIPPED:'s-shipped', PROCESSING:'s-processing', PENDING:'s-pending', CONFIRMED:'s-confirmed' }
+  return map[s?.toUpperCase()] || 's-placed'
 }
+const statusDot = { DELIVERED:'#2d7a2d', SHIPPED:'#1a6cff', PROCESSING:'#e06c00', PENDING:'#c07a00', CONFIRMED:'#5070d0' }
+
+export default function OrdersPage() {
+  const { user } = useAuthStore()
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('ALL')
+
+  useEffect(() => { if (user) fetchOrders() }, [user])
+
+  async function fetchOrders() {
+    try {
+      const { data } = await apiClient.get('/orders')
+      setOrders(data.data)
+    } catch {
+      toast.error('Failed to load orders')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if(loading){
-        return(
-            <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading order details...</p>
-        </div>
-      </div>
-        )
-    }
-
-    if(!order){
-        return <div className="p-8 text-center text-red-600">Orders not found</div>
-    }
-
-    const currentStepIndex = STATUS_STEPS.indexOf(order.status)
-
-    return (
-        <div className="max-w-4xl mx-auto space-y-6">
-      {/* Order Header */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <p className="text-sm text-gray-600">Order Number</p>
-            <p className="text-2xl font-bold text-gray-900">{order.orderNumber}</p>
-            <p className="text-sm text-gray-600 mt-4">Order Date</p>
-            <p className="text-gray-900">{new Date(order.createdAt).toLocaleDateString()}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Status</p>
-            <p className={`text-lg font-semibold mt-1 ${getStatusTextColor(order.status)}`}>
-              {order.status}
-            </p>
-            <p className="text-sm text-gray-600 mt-4">Payment Status</p>
-            <p className={`text-lg font-semibold mt-1 ${
-              order.paymentStatus === 'COMPLETED' ? 'text-green-600' : 'text-yellow-600'
-            }`}>
-              {order.paymentStatus}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Order Timeline */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-6">Order Timeline</h2>
-        <div className="relative">
-          <div className="flex items-start">
-            {STATUS_STEPS.map((step, index) => (
-              <div key={step} className="flex-1 relative">
-                {/* Step Circle */}
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                  index <= currentStepIndex
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}>
-                  {index <= currentStepIndex ? '✓' : index + 1}
-                </div>
-
-                {/* Step Label */}
-                <p className={`mt-3 text-center text-sm font-medium ${
-                  index <= currentStepIndex ? 'text-gray-900' : 'text-gray-500'
-                }`}>
-                  {step}
-                </p>
-
-                {/* Connector */}
-                {index < STATUS_STEPS.length - 1 && (
-                  <div className={`absolute top-5 left-1/2 w-1/2 h-0.5 ${
-                    index < currentStepIndex ? 'bg-primary' : 'bg-gray-200'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Items */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Order Items</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {order.items.map(item => (
-            <div key={item.id} className="p-6 flex gap-4">
-              <img
-                src={item.product.thumbnail}
-                alt={item.product.name}
-                className="w-24 h-24 object-cover rounded"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">{item.product.name}</h3>
-                <p className="text-sm text-gray-600 mt-1">Quantity: {item.quantity}</p>
-                <p className="text-sm text-gray-600">Price: ${item.price.toFixed(2)} each</p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900">${item.total.toFixed(2)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Pricing Summary */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-        <div className="space-y-3">
-          <div className="flex justify-between text-gray-600">
-            <span>Subtotal</span>
-            <span>${order.subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Tax</span>
-            <span>${order.tax.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Shipping</span>
-            <span>${order.shipping.toFixed(2)}</span>
-          </div>
-          {order.discount > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Discount</span>
-              <span>-${order.discount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="border-t border-gray-200 pt-3 flex justify-between">
-            <span className="font-semibold text-gray-900">Total</span>
-            <span className="text-2xl font-bold text-primary">${order.total.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Shipping Address */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
-        <div className="text-gray-900 space-y-1">
-          <p className="font-semibold">{order.shipping.fullName}</p>
-          <p>{order.shipping.street}</p>
-          <p>{order.shipping.city}, {order.shipping.state} {order.shipping.zipCode}</p>
-          <p>{order.shipping.country}</p>
-          <p className="text-sm text-gray-600 mt-3">Phone: {order.shipping.phone}</p>
-        </div>
-      </div>
-
-      {/* Contact Support */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-        <p className="text-gray-700 mb-4">Need help with your order?</p>
-        <button className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:opacity-90">
-          Contact Support
-        </button>
+  if (!user) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--mist)' }}>
+      <div style={{ textAlign:'center' }}>
+        <div className="serif" style={{ fontSize:48, fontWeight:900, marginBottom:16 }}>Sign In</div>
+        <p style={{ color:'var(--fog)', marginBottom:24 }}>Please sign in to view your orders</p>
+        <Link href="/auth/login" className="btn btn-ink">Sign In →</Link>
       </div>
     </div>
-    )
+  )
 
-    function getStatusTextColor(status){
-        const colors ={
-            PENDING: 'text-yellow-600',
-    CONFIRMED: 'text-blue-600',
-    PROCESSING: 'text-purple-600',
-    SHIPPED: 'text-cyan-600',
-    DELIVERED: 'text-green-600',
-    CANCELLED: 'text-red-600',
-        }
-        return colors[status] || 'text-gray-600'
-    }
+  const filters = ['ALL','PENDING','PROCESSING','SHIPPED','DELIVERED']
+  const filtered = filter === 'ALL' ? orders : orders.filter(o => o.status?.toUpperCase() === filter)
+
+  return (
+    <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
+
+      {/* Top bar */}
+      <div className="top-bar">
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+          <Link href="/" className="back-link">← Back</Link>
+          <div style={{ width:1, height:20, background:'var(--stone)' }} />
+          <span style={{ fontSize:13, fontWeight:600, color:'var(--fog)' }}>My Orders</span>
+        </div>
+        <Link href="/pages/products" className="btn btn-outline" style={{ fontSize:13, padding:'9px 18px' }}>
+          Continue Shopping
+        </Link>
+      </div>
+
+      <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(40px,6vw,64px) 24px' }}>
+
+        {/* Title */}
+        <div className="fade-up" style={{ marginBottom:40 }}>
+          <div className="divider" style={{ marginBottom:16 }} />
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', flexWrap:'wrap', gap:16 }}>
+            <div>
+              <h1 className="serif" style={{ fontSize:'clamp(2.4rem,5vw,3.6rem)', fontWeight:900, letterSpacing:'-0.03em', lineHeight:1.1 }}>
+                Your Orders
+              </h1>
+              <p style={{ color:'var(--fog)', fontSize:16, marginTop:8 }}>
+                {orders.length} order{orders.length !== 1 ? 's' : ''} placed
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter pills */}
+        {!loading && orders.length > 0 && (
+          <div style={{ display:'flex', gap:8, marginBottom:32, flexWrap:'wrap' }}>
+            {filters.map(f => (
+              <button
+                key={f}
+                className={`filter-pill${filter === f ? ' active' : ''}`}
+                onClick={() => setFilter(f)}
+              >
+                {f === 'ALL' ? 'All Orders' : f.charAt(0) + f.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Table header */}
+        {!loading && filtered.length > 0 && (
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr auto', gap:16, padding:'0 28px', marginBottom:12 }}>
+            {['Order','Date','Items','Total','Status'].map((h, i) => (
+              <div key={h} className="sec-label" style={{ textAlign: i === 4 ? 'right' : 'left' }}>{h}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
+        {loading ? (
+          <div style={{ textAlign:'center', padding:'80px 0' }}>
+            <div className="spinner" style={{ margin:'0 auto 16px' }} />
+            <p style={{ color:'var(--fog)', fontSize:15 }}>Loading your orders…</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'80px 0', border:'1.5px dashed var(--stone)', borderRadius:16 }}>
+            <div style={{ fontSize:56, marginBottom:20 }}>📦</div>
+            <h2 className="serif" style={{ fontSize:28, fontWeight:900, marginBottom:12 }}>
+              {filter !== 'ALL' ? `No ${filter.toLowerCase()} orders` : 'No orders yet'}
+            </h2>
+            <p style={{ color:'var(--fog)', marginBottom:28 }}>
+              {filter !== 'ALL' ? 'Try a different filter' : 'Start shopping to see your orders here'}
+            </p>
+            <Link href="/pages/products" className="btn btn-ink">Browse Products →</Link>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {filtered.map((order, i) => (
+              <Link
+                key={order.id}
+                href={`/pages/orders/${order.id}`}
+                className="order-row fade-up"
+                style={{ animationDelay:`${i * 0.05}s` }}
+              >
+                <div>
+                  <div className="col-label">Order</div>
+                  <div className="col-value" style={{ color:'var(--sky)' }}>#{order.orderNumber}</div>
+                </div>
+                <div>
+                  <div className="col-label">Date</div>
+                  <div className="col-value" style={{ fontSize:14 }}>
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
+                  </div>
+                </div>
+                <div className="hide-mobile">
+                  <div className="col-label">Items</div>
+                  <div className="col-value">{order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div>
+                  <div className="col-label">Total</div>
+                  <div className="col-value">₹{order.total?.toLocaleString('en-IN')}</div>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <span className={`status-badge ${statusClass(order.status)}`}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:statusDot[order.status?.toUpperCase()] || 'var(--fog)', display:'inline-block', flexShrink:0 }} />
+                    {order.status}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Summary footer */}
+        {!loading && orders.length > 0 && (
+          <div style={{ marginTop:48, padding:'24px 28px', background:'var(--mist)', borderRadius:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:16 }}>
+            <div style={{ fontSize:14, color:'var(--fog)' }}>
+              Showing <strong style={{ color:'var(--ink)' }}>{filtered.length}</strong> of <strong style={{ color:'var(--ink)' }}>{orders.length}</strong> orders
+            </div>
+            <div style={{ display:'flex', gap:24 }}>
+              {[
+                ['Total Spent', `₹${orders.reduce((s,o) => s + (o.total||0), 0).toLocaleString('en-IN')}`],
+                ['Orders', orders.length],
+              ].map(([l,v]) => (
+                <div key={l} style={{ textAlign:'right' }}>
+                  <div className="sec-label">{l}</div>
+                  <div className="serif" style={{ fontSize:20, fontWeight:900, color:'var(--ink)' }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }

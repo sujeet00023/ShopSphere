@@ -1,304 +1,256 @@
+/* eslint-disable react-hooks/static-components */
 'use client'
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import apiClient from "../../../utils/api"
-import { useCartStore } from "../../../store/cartStore"
-import { useAuthStore } from "../../../store/authStore"
-import toast from "react-hot-toast"
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import apiClient from '../../../utils/api'
+import { useCartStore } from '../../../store/cartStore'
+import { useAuthStore } from '../../../store/authStore'
+import toast from 'react-hot-toast'
 
 export default function CheckoutPage() {
-    const router = useRouter()
-    const {user} = useAuthStore()
-    const {items, getTotals, clearCart} = useCartStore()
-    const {total} = getTotals()
-    const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState({
-  fullName: user?.name || '',
-  email: user?.email || '',
-  phone: '',
-  street: '',
-  city: '',
-  state: '',
-  zipCode: '',
-  country: 'India',
-})
-    const [paymentData, setPaymentData] = useState({
-        cardName: '',
-        cardNumber: '',
-        expiry: '',
-        cvc: '',
-    })
+  const router = useRouter()
+  const { user } = useAuthStore()
+  const { items, getTotals, clearCart } = useCartStore()
+  const { total, subtotal, tax } = getTotals()
+  const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState(1)
 
-    if(items.length === 0 ){
-        return (
-            <div className="text-center py-12">
-        <p className="text-gray-600 mb-4">No items in cart</p>
-        <a href="/pages/cart" className="text-primary font-bold hover:underline">
-          Back to Cart
-        </a>
+  const [formData, setFormData] = useState({
+    fullName: user?.name || '',
+    email:    user?.email || '',
+    phone:    '',
+    street:   '',
+    city:     '',
+    state:    '',
+    zipCode:  '',
+    country:  'India',
+  })
+  const [paymentData, setPaymentData] = useState({
+    cardName:   '',
+    cardNumber: '',
+    expiry:     '',
+    cvc:        '',
+  })
+
+  const upd = (setter, key) => e => setter(prev => ({ ...prev, [key]: e.target.value }))
+
+  if (items.length === 0) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
+      <div style={{ fontSize:56, marginBottom:8 }}>🛒</div>
+      <div className="serif" style={{ fontSize:32, fontWeight:900 }}>Your cart is empty</div>
+      <p style={{ color:'var(--fog)', fontSize:16, marginBottom:8 }}>Add some items before checking out.</p>
+      <a href="/pages/cart" style={{ fontSize:15, fontWeight:700, color:'var(--sky)', textDecoration:'none' }}>← Back to Cart</a>
+    </div>
+  )
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const { data } = await apiClient.post('/orders', {
+        items: items.map(item => ({ productId:item.id, quantity:item.quantity, price:item.price })),
+        shipping: { ...formData },
+      })
+      const orderId = data.data[0].id
+      await apiClient.post('/stripe/create-payment-intent', { orderId })
+      toast.success('Order placed successfully!')
+      clearCart()
+      router.push(`/pages/orders/${orderId}`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Checkout failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const Field = ({ label, children, span }) => (
+    <div className="field-wrap" style={span ? { gridColumn:`span ${span}` } : {}}>
+      <label className="field-label">{label}</label>
+      {children}
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
+
+      {/* Top bar */}
+      <div className="top-bar">
+        <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+          <a href="/pages/cart" className="back-link">← Cart</a>
+          <div style={{ width:1, height:18, background:'var(--stone)' }} />
+          <div className="serif" style={{ fontSize:18, fontWeight:900 }}>Checkout</div>
+        </div>
+        {/* Step indicator */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13 }}>
+          {[['1','Shipping'],['2','Payment']].map(([n, label], idx) => (
+            <div key={n} style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:24, height:24, borderRadius:'50%', background:step >= +n ? 'var(--ink)' : 'var(--stone)', color:step >= +n ? '#fff' : 'var(--fog)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, transition:'background 0.2s' }}>{n}</div>
+              <span style={{ fontWeight:600, color:step >= +n ? 'var(--ink)' : 'var(--fog)' }}>{label}</span>
+              {idx === 0 && <div style={{ width:24, height:1.5, background:'var(--stone)', margin:'0 4px' }} />}
+            </div>
+          ))}
+        </div>
       </div>
-        )
-    }
 
-    async function handleSubmit(e) {
-        e.preventDefault()
-        setLoading(true)
+      <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(32px,5vw,52px) 24px' }}>
+        <form onSubmit={handleSubmit}>
+          <div className="checkout-layout" style={{ display:'grid', gridTemplateColumns:'1fr 380px', gap:32, alignItems:'start' }}>
 
-        try {
-            const {data} = await apiClient.post('/orders', {
-                items: items.map(item => ({
-                    productId: item.id,
-                    quantity: item.quantity,
-                    price: item.price,
-                })),
-                shipping: {
-                    fullName: formData.fullName,
-                    email: formData.email,
-                    phone: formData.phone,
-                    street: formData.street,
-                    city: formData.city,
-                    state: formData.state,
-                    zipCode: formData.zipCode,
-                    country: formData.country,
-                },
-            })
-
-            const PaymentRes = await apiClient.post('/stripe/create-payment-intent', {
-                orderId: data.data.id,
-                amount: total,
-            })
-            
-            await apiClient.post(`/stripwebhook`, {
-                type: 'payment_intent.succeeded',
-                data:{
-                    object: {
-                        id: PaymentRes.data.data.clientSecret,
-                    },
-                },
-            })
-
-            toast.success('Order placed successfully')
-            clearCart()
-            router.push(`/orders/${data.data[0].id}`)
-        
-        }catch (err) {
-            toast.error(err.response?.data?.message || 'Checkout failed')
-        }finally{
-            setLoading(false)
-        }
-        
-    }
-
-    return(
-        <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Shipping */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-                <h2 className="text-xl font-bold">Shipping Address</h2>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Street Address</label>
-                  <input
-                    type="text"
-                    value={formData.street}
-                    onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">City</label>
-                    <input
-                      type="text"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">State/Province</label>
-                    <input
-                      type="text"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">ZIP Code</label>
-                    <input
-                      type="text"
-                      value={formData.zipCode}
-                      onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Country</label>
-                    <input
-                      type="text"
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
-                </div>
+            {/* LEFT */}
+            <div>
+              <div className="fade-up" style={{ marginBottom:28 }}>
+                <div className="divider" style={{ marginBottom:14 }} />
+                <h1 className="serif" style={{ fontSize:'clamp(2rem,4vw,2.8rem)', fontWeight:900, letterSpacing:'-0.03em' }}>
+                  {step === 1 ? 'Shipping Info' : 'Payment'}
+                </h1>
               </div>
 
-              {/* Payment */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-                <h2 className="text-xl font-bold">Payment Information</h2>
-
-                <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm">
-                  <p className="font-bold text-blue-900 mb-2">Test Card:</p>
-                  <p className="text-blue-800">4242 4242 4242 4242 | Any future date | Any CVC</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Card Holder Name</label>
-                  <input
-                    type="text"
-                    value={paymentData.cardName}
-                    onChange={(e) => setPaymentData({ ...paymentData, cardName: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Card Number</label>
-                  <input
-                    type="text"
-                    value={paymentData.cardNumber}
-                    onChange={(e) => setPaymentData({ ...paymentData, cardNumber: e.target.value })}
-                    placeholder="4242 4242 4242 4242"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Expiry</label>
-                    <input
-                      type="text"
-                      value={paymentData.expiry}
-                      onChange={(e) => setPaymentData({ ...paymentData, expiry: e.target.value })}
-                      placeholder="MM/YY"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+              {/* Step 1 — Shipping */}
+              {step === 1 && (
+                <div className="fade-up d1">
+                  <div className="section-card">
+                    <div className="section-title">Delivery Details</div>
+                    <div style={{ display:'grid', gap:16 }}>
+                      <Field label="Full Name">
+                        <input className="field-input" type="text" value={formData.fullName} onChange={upd(setFormData,'fullName')} placeholder="John Doe" required />
+                      </Field>
+                      <div className="grid-2">
+                        <Field label="Email">
+                          <input className="field-input" type="email" value={formData.email} onChange={upd(setFormData,'email')} placeholder="john@email.com" required />
+                        </Field>
+                        <Field label="Phone">
+                          <input className="field-input" type="tel" value={formData.phone} onChange={upd(setFormData,'phone')} placeholder="+91 9876543210" required />
+                        </Field>
+                      </div>
+                      <Field label="Street Address">
+                        <input className="field-input" type="text" value={formData.street} onChange={upd(setFormData,'street')} placeholder="123 Main Street, Apt 4B" required />
+                      </Field>
+                      <div className="grid-3">
+                        <Field label="City">
+                          <input className="field-input" type="text" value={formData.city} onChange={upd(setFormData,'city')} placeholder="Mumbai" required />
+                        </Field>
+                        <Field label="State">
+                          <input className="field-input" type="text" value={formData.state} onChange={upd(setFormData,'state')} placeholder="Maharashtra" required />
+                        </Field>
+                        <Field label="ZIP Code">
+                          <input className="field-input" type="text" value={formData.zipCode} onChange={upd(setFormData,'zipCode')} placeholder="400001" required />
+                        </Field>
+                      </div>
+                      <Field label="Country">
+                        <input className="field-input" type="text" value={formData.country} onChange={upd(setFormData,'country')} required />
+                      </Field>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">CVC</label>
-                    <input
-                      type="text"
-                      value={paymentData.cvc}
-                      onChange={(e) => setPaymentData({ ...paymentData, cvc: e.target.value })}
-                      placeholder="123"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
+                  <button type="button" onClick={() => setStep(2)} className="submit-btn">
+                    Continue to Payment →
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2 — Payment */}
+              {step === 2 && (
+                <div className="fade-up d1">
+                  <div style={{ background:'#eff6ff', border:'1.5px solid #bfdbfe', borderRadius:12, padding:'14px 18px', marginBottom:20, display:'flex', gap:12, alignItems:'flex-start' }}>
+                    <span style={{ fontSize:18, flexShrink:0 }}>🔵</span>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:14, color:'#1e40af', marginBottom:4 }}>Test Mode</div>
+                      <div className="mono" style={{ fontSize:13, color:'#3b5fc0' }}>4242 4242 4242 4242 · Any future date · Any CVC</div>
+                    </div>
+                  </div>
+                  <div className="section-card">
+                    <div className="section-title">Card Details</div>
+                    <div style={{ display:'grid', gap:16 }}>
+                      <Field label="Cardholder Name">
+                        <input className="field-input" type="text" value={paymentData.cardName} onChange={upd(setPaymentData,'cardName')} placeholder="Name on card" required />
+                      </Field>
+                      <Field label="Card Number">
+                        <input className="field-input mono" type="text" value={paymentData.cardNumber} onChange={upd(setPaymentData,'cardNumber')} placeholder="4242 4242 4242 4242" maxLength={19} required />
+                      </Field>
+                      <div className="grid-2">
+                        <Field label="Expiry">
+                          <input className="field-input mono" type="text" value={paymentData.expiry} onChange={upd(setPaymentData,'expiry')} placeholder="MM / YY" maxLength={5} required />
+                        </Field>
+                        <Field label="CVC">
+                          <input className="field-input mono" type="text" value={paymentData.cvc} onChange={upd(setPaymentData,'cvc')} placeholder="123" maxLength={4} required />
+                        </Field>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:16, marginBottom:20, flexWrap:'wrap' }}>
+                    {['🔒 SSL Encrypted','🛡️ Stripe Secured','✓ PCI Compliant'].map(b => (
+                      <span key={b} style={{ fontSize:12, color:'var(--fog)', fontWeight:500 }}>{b}</span>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', gap:12 }}>
+                    <button type="button" onClick={() => setStep(1)}
+                      style={{ padding:'16px 24px', border:'1.5px solid var(--stone)', borderRadius:10, background:'var(--paper)', fontWeight:600, cursor:'pointer', fontFamily:'inherit', fontSize:15, color:'var(--ink)' }}>
+                      ← Back
+                    </button>
+                    <button type="submit" disabled={loading} className="submit-btn" style={{ flex:1 }}>
+                      {loading
+                        ? <><span className="spinner-sm" /> Processing…</>
+                        : `Place Order · ₹${total.toFixed(2)}`
+                      }
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
+            </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:opacity-90 disabled:opacity-50"
-              >
-                {loading ? 'Processing...' : `Place Order - $${total.toFixed(2)}`}
-              </button>
-            </form>
-          </div>
+            {/* RIGHT — Summary */}
+            <div className="summary-card-checkout fade-up d2">
+              <div className="sec-label" style={{ marginBottom:18 }}>Order Summary</div>
 
-          {/* Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-20 space-y-4">
-              <h2 className="text-xl font-bold">Order Summary</h2>
-
-              <div className="space-y-3 border-b border-gray-200 pb-4">
+              {/* Items */}
+              <div style={{ marginBottom:16 }}>
                 {items.map(item => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>${(item.price * item.quantity).toFixed(2)}</span>
+                  <div key={item.id} className="cart-item-mini">
+                    <div style={{ width:48, height:48, borderRadius:8, background:'var(--paper)', overflow:'hidden', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
+                      {item.thumbnail ? <img src={item.thumbnail} alt={item.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : '📦'}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</div>
+                      <div style={{ fontSize:12, color:'var(--fog)', marginTop:2 }}>×{item.quantity}</div>
+                    </div>
+                    <div style={{ fontSize:14, fontWeight:700, flexShrink:0 }}>
+                      ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                    </div>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>${getTotals().subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax</span>
-                  <span>${getTotals().tax.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Shipping</span>
-                  <span>Free</span>
-                </div>
+              <div style={{ borderTop:'1.5px solid var(--stone)', paddingTop:14, marginBottom:14 }}>
+                {[['Subtotal', `₹${subtotal?.toFixed(2)}`], ['Tax', `₹${tax?.toFixed(2)}`], ['Shipping','Free']].map(([l,v]) => (
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', fontSize:14, color:'var(--fog)', padding:'6px 0' }}>
+                    <span>{l}</span>
+                    <span style={{ color: v === 'Free' ? 'var(--sage)' : 'var(--ink)', fontWeight: v === 'Free' ? 700 : 400 }}>{v}</span>
+                  </div>
+                ))}
               </div>
 
-              <div className="border-t border-gray-200 pt-4 flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span className="text-primary">${total.toFixed(2)}</span>
+              <div style={{ borderTop:'1.5px solid var(--stone)', paddingTop:14, display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                <span className="serif" style={{ fontSize:20, fontWeight:900 }}>Total</span>
+                <span className="serif" style={{ fontSize:26, fontWeight:900, letterSpacing:'-0.02em' }}>₹{total.toFixed(2)}</span>
+              </div>
+
+              {/* Shipping preview in step 2 */}
+              {step === 2 && formData.street && (
+                <div style={{ marginTop:20, background:'var(--paper)', borderRadius:10, padding:'14px 16px', fontSize:13, lineHeight:1.8 }}>
+                  <div className="sec-label" style={{ marginBottom:6 }}>Ships to</div>
+                  <div style={{ fontWeight:600 }}>{formData.fullName}</div>
+                  <div style={{ color:'var(--fog)' }}>{formData.street}</div>
+                  <div style={{ color:'var(--fog)' }}>{formData.city}, {formData.state} {formData.zipCode}</div>
+                </div>
+              )}
+
+              <div style={{ marginTop:20, fontSize:12, color:'var(--fog)', lineHeight:1.7, textAlign:'center' }}>
+                🔒 Your payment info is encrypted and secure
               </div>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
-    )
+  )
 }

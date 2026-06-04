@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 'use client'
 
-import {useEffect, useState} from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import apiClient from '../../../../utils/api'
@@ -10,57 +10,57 @@ import ProductReviews from '../../../../components/ProductRevirw'
 import Recommendations from '../../../../components/Recommendations'
 import toast from 'react-hot-toast'
 
-export default function ProductDetailsPage(){
-    const params = useParams()
-    const [product, setProduct] = useState(null)
-    const [quantity, setQuantity] = useState(1)
-    const {addToCart } = useCartStore()
+export default function ProductDetailsPage() {
+  const params = useParams()
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [quantity, setQuantity] = useState(1)
+  const { addToCart } = useCartStore()
 
-    useEffect(() =>{
-        fetchProduct()
-    }, [params.id])
+  useEffect(() => {
+    fetchProduct()
+  }, [params.id])
 
-    async function fetchProduct() {
-        try{
-            const {data}  = await apiClient.get(`/products/${params.id}`)
-            setProduct(data.data)
-        }catch (err) {
-            toast.error('Product not found ')
-        }finally {
-            setLoading(false)
-        }
-        
+  async function fetchProduct() {
+    try {
+      const { data } = await apiClient.get(`/products/${params.id}`)
+      setProduct(data.data)
+    } catch (err) {
+      toast.error('Product not found')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-        const handleAddToCart = () =>{
-            addToCart(product, quantity)
-            toast.success(`Added ${quantity} to cart `)
-            setQuantity(1)
-        }
+  const handleAddToCart = () => {
+    addToCart(product, quantity)
+    toast.success(`Added ${quantity} to cart!`)
+    setQuantity(1)
+  }
 
-        if(loading){
-            return (
-                 <div className="flex items-center justify-center min-h-screen">
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading product...</p>
         </div>
       </div>
-            )
-        }
+    )
+  }
 
-        if(!loading) {
-            return (
-                <div className="text-center py-12">
+  if (!product) {
+    return (
+      <div className="text-center py-12">
         <p className="text-red-600">Product not found</p>
       </div>
-            )
-        }
-    }
+    )
+  }
 
-    const discountedPrice = product.price - (product.price * (product.discountPct / 100))
+  const discountedPrice = product.price - (product.price * (product.discountPct / 100))
 
-    return (
-         <div className="min-h-screen bg-white">
+  return (
+    <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <div className="mb-6 text-sm">
@@ -182,6 +182,5 @@ export default function ProductDetailsPage(){
         </div>
       </div>
     </div>
-    )
-
+  )
 }

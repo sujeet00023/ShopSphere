@@ -84,18 +84,19 @@ router.get('/:orderId/download', authMiddleware, async(req, res) => {
     }
 
     function generateInvoiceHTML(order){
-        const itemsHTML = order.items
-        .map(
-      item => `
-    <tr>
-      <td>${item.product.name}</td>
-      <td>${item.quantity}</td>
-      <td>$${item.price.toFixed(2)}</td>
-      <td>$${item.total.toFixed(2)}</td>
-    </tr>
-  `
-    )
-    .json('')
+       const itemsHTML = order.items
+  .map(
+    item => `
+      <tr>
+        <td>${item.product.name}</td>
+        <td>${item.quantity}</td>
+        <td>₹${item.price.toLocaleString('en-IN')}</td>
+        <td>₹${item.total.toLocaleString('en-IN')}</td>
+      </tr>
+    `
+  )
+  .join('')
+    
     return `
     <!DOCTYPE html>
     <html>

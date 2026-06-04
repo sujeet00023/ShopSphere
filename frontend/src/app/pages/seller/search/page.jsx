@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import apiClient from "../../../utils/api"
-import ProductGrid from "../../../components/ProductGrid"
+import apiClient from "../../../../utils/api"
+import ProductGrid from "../../../../components/ProductGrid"
 import toast from "react-hot-toast"
 
 
@@ -24,7 +24,7 @@ export default function AdvancedSearch(){
 
     useEffect (() =>{
         fetchSearch()
-    }, [query, category, minPrice, maxPrice, minRating, sortBy, inStock, page])
+    }, [query, category, minPrice, maxPrice, minRating, sortBy, inStock, fetchSearch])
 
     useEffect(() =>{
         fetchFilters()

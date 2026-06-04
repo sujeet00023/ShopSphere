@@ -17,6 +17,8 @@ if (!shipping) {
 }
 
     // Get cart items
+const { items } = req.body
+
 if (!items || items.length === 0) {
   return res.status(400).json({
     message: 'Cart is empty.'
@@ -40,6 +42,21 @@ if (!items || items.length === 0) {
     if (!address || address.userId !== req.user.id) {
       return res.status(400).json({ message: 'Invalid shipping address.' })
     }
+
+    const cartItems = await Promise.all(
+  items.map(async (item) => {
+    const product = await prisma.product.findUnique({
+      where: {
+        id: item.productId,
+      },
+    })
+
+    return {
+      quantity: item.quantity,
+      product,
+    }
+  })
+)
 
     // Group items by seller
     const bySellerMap = {}
