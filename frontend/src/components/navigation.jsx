@@ -45,7 +45,7 @@ export default function Navigation(){
             <Link href="/pages/products" className="text-gray-700 hover:text-primary transition-colors">
               Products
             </Link>
-            <Link href="/about" className="text-gray-700 hover:text-primary transition-colors">
+            <Link href="/pages/about" className="text-gray-700 hover:text-primary transition-colors">
               About
             </Link>
             <Link href="/contact" className="text-gray-700 hover:text-primary transition-colors">

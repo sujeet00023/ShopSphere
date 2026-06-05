@@ -7,69 +7,67 @@ import apiClient from "../../../../utils/api"
 import ProductGrid from "../../../../components/ProductGrid"
 import toast from "react-hot-toast"
 
+export default function AdvancedSearch() {
+  const searchParams = useSearchParams()
+  const [products, setProducts] = useState([])
+  const [filters, setFilters] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [category, setCategory] = useState(searchParams.get('category') || '')
+  const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '0')
+  const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '999999')
+  const [minRating, setMinRating] = useState(searchParams.get('minRating') || '0')
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'relevance')
+  const [inStock, setInStock] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState(null)
 
-export default function AdvancedSearch(){
-    const searchParams = useSearchParams()
-    const [products, setProducts] = useState([])
-    const [filters, setFilters] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [query, setQuery] = useState(searchParams.get('q') || '')
-    const [category, setCategory] = useState(searchParams.get('category') || '')
-    const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '0')
-    const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice' || '999999'))
-    const [minRating, setMinRating] = useState(searchParams.get('minRating' || '0'))
-    const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'relevance')
-    const [inStock, setInStock] = useState(1)
-    const [pagination, setPagination] = useState(null)
+  useEffect(() => {
+    fetchSearch()
+  }, [query, category, minPrice, maxPrice, minRating, sortBy, inStock, page])
 
-    useEffect (() =>{
-        fetchSearch()
-    }, [query, category, minPrice, maxPrice, minRating, sortBy, inStock, fetchSearch])
+  useEffect(() => {
+    fetchFilters()
+  }, [category])
 
-    useEffect(() =>{
-        fetchFilters()
-    }, [category])
-
-    async function fetchSearch() {
-        try{
-            setLoading(true)
-            const {data} = await apiClient.get('/search/advanced', {
-                params: {
-                    q: auery,
-                    category,
-                    minPrice,
-                    maxPrice,
-                    minRating,
-                    sortBy,
-                    inStock: inStock ? 'true' : 'false',
-                    page,
-                    limit: 12,
-
-                },
-            })
-            setProducts(data.data)
-            setPagination(data.pagination)
-        }catch(err){
-            toast.error('Search failed')
-        }finally {
-            setLoading(false)
-        }
-        
+  async function fetchSearch() {
+    try {
+      setLoading(true)
+      const { data } = await apiClient.get('/search/advanced', {
+        params: {
+          q: query,
+          category,
+          minPrice,
+          maxPrice,
+          minRating,
+          sortBy,
+          inStock: inStock ? 'true' : 'false',
+          page,
+          limit: 12,
+        },
+      })
+      setProducts(data.data)
+      setPagination(data.pagination)
+    } catch (err) {
+      toast.error('Search failed')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    async function fetchFilters() {
-        try {
-            const {data} = await apiClient.get('/search/filters', {
-                params: {categoryId: category },
-            })
-            setFilters(data.data)
-        }catch (err) {
-            console.error('Failed to load filters ')
-        }
+  async function fetchFilters() {
+    try {
+      const { data } = await apiClient.get('/search/filters', {
+        params: { categoryId: category },
+      })
+      setFilters(data.data)
+    } catch (err) {
+      console.error('Failed to load filters')
     }
+  }
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Filters Sidebar */}
       <div className="lg:col-span-1">
         <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6 sticky top-20">
@@ -242,5 +240,5 @@ export default function AdvancedSearch(){
         </div>
       </div>
     </div>
-    )
+  )
 }

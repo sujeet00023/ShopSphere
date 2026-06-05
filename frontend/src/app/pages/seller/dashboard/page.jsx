@@ -376,7 +376,7 @@ function InventorySection() {
         apiClient.get('/inventory/alerts'),
       ])
       setInventory(invRes.data.data)
-      setAlerts(alertRef.data.data)
+      setAlerts(alertRes.data.data)
     } catch {
       toast.error('Failed to load inventory')
     } finally {
@@ -401,7 +401,6 @@ function InventorySection() {
 
   const tabs = [
     { id: 'overview',    label: 'Overview' },
-    { id: 'products', label: 'Products', icon: '🛍️' },
     { id: 'inStock',     label: 'In Stock' },
     { id: 'lowStock',    label: 'Low Stock' },
     { id: 'outOfStock',  label: 'Out of Stock' },

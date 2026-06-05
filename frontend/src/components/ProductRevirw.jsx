@@ -4,85 +4,87 @@ import { useEffect, useState } from 'react'
 import apiClient from '../utils/api'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
-import { comment } from 'postcss/lib/postcss'
 
-export default function ProductReviews({ productId }){
-    const { user } = useAuthStore()
-    const [reviews, setReviews] = useState([])
-    const [stats, setStats] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [showForm, setShowForm] = useState(flase)
-    const [formDate, setFormData] = useState({
-        rating: 5,
-        title: '',
-        comment: '',
-    })
-    const [submitting, setSubmitting ] = useState(false)
-    const [sort, setSort] = useState('helpful')
+export default function ProductReviews({ productId }) {
+  const { user } = useAuthStore()
+  const [reviews, setReviews] = useState([])
+  const [stats, setStats] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [formData, setFormData] = useState({
+    rating: 5,
+    title: '',
+    comment: '',
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [sort, setSort] = useState('helpful')
 
-    useEffect(() =>{
-        fetchReviews()
-        fetchStats()
-    }, [productId, sort])
+  useEffect(() => {
+    fetchReviews()
+    fetchStats()
+  }, [productId, sort])
 
-    async function fetchReview() {
-        try {
-            const { data } = await apiClient.get(`/reviews/product/${productId}?sort=${sort}`)
-            setReviews(data.data)
+  async function fetchReviews() {
+    try {
+      const { data } = await apiClient.get(`/reviews/product/${productId}?sort=${sort}`)
+      setReviews(data.data)
+    } catch (err) {
+      console.error('Failed to fetch reviews')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-        }catch(err) {
-            console.error('Failed to fetch review ')
-        }finally {
-            setLoading(false)
-        }
-        
+  async function fetchStats() {
+    try {
+      const { data } = await apiClient.get(`/reviews/stats/${productId}`)
+      setStats(data.data)
+    } catch (err) {
+      console.error('Failed to fetch review stats')
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!user) {
+      toast.error('Please log in to leave a review')
+      return
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault()
-        if(!user){
-            toast.error('Please log in to leave a review ')
-            return
-        }
-
-        if(!FormData.title.trim()){
-            toast.error('Please enter a title')
-            return
-        }
-
-        setSubmitting(true)
-        try{
-            await apiClient.post('/reviews', {
-            productId,
-            ...formDate,
-            })
-            toast.success('Review post successfully!')
-            setFormData({ rating: 5, title: '', comment: ''})
-            setShowForm(false)
-            fetchReview()
-            fetchStats()
-        }catch (err){
-            toast.error(err.response?.data?.message || 'Failed to post review')
-
-        }finally {
-            setSubmitting(false)
-        }
-        
+    if (!formData.title.trim()) {
+      toast.error('Please enter a title')
+      return
     }
 
-    async function markHelpful(reviewId) {
-        try{
-            await apiClient.patch(`/review/${reviewId}/helpful`)
-            fetchReviews()
-
-        }catch (err) {
-            toast.error('failed to update')
-        }
-        
+    setSubmitting(true)
+    try {
+      await apiClient.post('/reviews', {
+        productId,
+        ...formData,
+      })
+      toast.success('Review posted successfully!')
+      setFormData({ rating: 5, title: '', comment: '' })
+      setShowForm(false)
+      fetchReviews()
+      fetchStats()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to post review')
+    } finally {
+      setSubmitting(false)
     }
+  }
 
-    return(
-        <div className="space-y-6">
+  async function markHelpful(reviewId) {
+    try {
+      await apiClient.patch(`/reviews/${reviewId}/helpful`)
+      fetchReviews()
+    } catch (err) {
+      toast.error('Failed to update')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
       {/* Review Stats */}
       {stats && (
         <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -274,5 +276,5 @@ export default function ProductReviews({ productId }){
         </div>
       )}
     </div>
-    )
+  )
 }

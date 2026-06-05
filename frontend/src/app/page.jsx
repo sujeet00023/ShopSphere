@@ -174,7 +174,7 @@ export default function Home() {
       </section>
 
       {/* ── Categories ── */}
-      {categories.length > 0 && (
+     {/*  {categories.length > 0 && (
         <section style={{ maxWidth:1280, margin:'0 auto', padding:'clamp(64px,10vw,100px) 24px' }}>
           <div style={{ marginBottom:48 }}>
             <div className="divider" style={{ marginBottom:16 }} />
@@ -197,10 +197,10 @@ export default function Home() {
             ))}
           </div>
         </section>
-      )}
+      )} */}
 
       {/* ── CTA ── */}
-      <section style={{ maxWidth:1280, margin:'0 auto', padding:'0 24px clamp(64px,10vw,100px)' }}>
+      <section style={{ maxWidth:1280, margin:'0 auto',  marginTop: '60px', padding:'0 24px clamp(64px,10vw,100px)' }}>
         <div style={{ background:'var(--ink)', borderRadius:24, padding:'clamp(48px,7vw,80px) clamp(32px,6vw,80px)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:32 }}>
           <div style={{ maxWidth:520 }}>
             <span className="pill" style={{ background:'rgba(232,67,10,0.15)', color:'var(--ember)', marginBottom:20, display:'inline-block', border:'1px solid rgba(232,67,10,0.3)' }}>
@@ -215,7 +215,7 @@ export default function Home() {
           </div>
           <div style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
             <Link href="/pages/products" className="btn btn-ember" style={{ fontSize:15 }}>Shop Now →</Link>
-            <Link href="/search"         className="btn btn-ghost-dark" style={{ fontSize:15 }}>Advanced Search</Link>
+            <Link href="/pages/search"         className="btn btn-ghost-dark" style={{ fontSize:15 }}>Advanced Search</Link>
           </div>
         </div>
       </section>

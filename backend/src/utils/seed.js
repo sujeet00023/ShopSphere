@@ -95,7 +95,7 @@ async function seed() {
     })
 
     // Create products
-    const products = await Promise.all([
+   /*  const products = await Promise.all([
       prisma.product.create({
         data: {
           name: 'Wireless Headphones Pro',
@@ -171,7 +171,7 @@ async function seed() {
           images: ['https://via.placeholder.com/300?text=DeskLamp'],
         },
       }),
-    ])
+    ]) */
 
     // Create addresses
     const address = await prisma.address.create({
