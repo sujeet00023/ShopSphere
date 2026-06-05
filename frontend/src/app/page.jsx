@@ -7,6 +7,8 @@ import apiClient from '../utils/api'
 import ProductGrid from '../components/ProductGrid'
 import toast from 'react-hot-toast'
 
+
+
 /* ── Marquee Strip ── */
 const tags = ['Free Shipping','Secure Payment','Top Sellers','New Arrivals','Easy Returns','Verified Products','10,000+ Items']
 function Marquee() {
