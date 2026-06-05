@@ -1,11 +1,10 @@
 import express from 'express'
 import {PrismaClient} from '@prisma/client'
 import {authMiddleware, requireRole} from '../middleware/auth.js'
-import { status } from 'init'
 
 const router = express.Router()
 const prisma = new PrismaClient()
-
+// GET /api/admin/dashboard (admin dashboard stats)
 router.get('/dashboard', authMiddleware,requireRole('ADMIN'), async(req, res) =>{
     try{
         const [
