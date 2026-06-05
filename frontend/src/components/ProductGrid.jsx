@@ -1,48 +1,159 @@
 'use client'
 
 import Link from 'next/link'
-import {useState} from 'react'
+import { useState } from 'react'
 import { useCartStore } from '../store/cartStore'
 import apiClient from '../utils/api'
 import toast from 'react-hot-toast'
 
-export default function ProductGrid({ products =[], loading}){
-    const { addToCart } = useCartStore()
+/* ── helpers ── */
+const fmtINR = n => `₹${Number(n).toLocaleString('en-IN')}`
 
-   const handleAddToCart = async (product) => {
-  try {
-    await apiClient.post('/cart', {
-      productId: product.id,
-      quantity: 1,
-    })
-
-    toast.success(`${product.name} added to cart`)
-  } catch (err) {
-    toast.error(err.response?.data?.message || 'Failed to add to cart')
-  }
+function StarRating({ rating }) {
+  const full  = Math.round(rating)
+  return (
+    <div style={{ display:'flex', gap:2 }}>
+      {[1,2,3,4,5].map(i => (
+        <span key={i} style={{ fontSize:11, color: i <= full ? '#f59e0b' : '#e2e8f0' }}>★</span>
+      ))}
+    </div>
+  )
 }
 
-    if(loading) {
-        return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...Array(8)].map((_, i) =>(
-                <div key={i} className='bg-gray-200 rounded-lg h-80 animate-pulse' />
-            ))}
+function ProductCard({ product, onAddToCart }) {
+  const [adding, setAdding] = useState(false)
+  const discounted = product.discountPct > 0
+    ? product.price * (1 - product.discountPct / 100)
+    : null
+  const outOfStock = product.stock === 0
+  const lowStock   = product.stock > 0 && product.stock < 5
+
+  async function handleClick(e) {
+    e.preventDefault()          // don't navigate
+    e.stopPropagation()
+    setAdding(true)
+    await onAddToCart()
+    setAdding(false)
+  }
+
+  return (
+    <Link
+      href={`/pages/products/${product.id}`}
+      style={{ textDecoration:'none', color:'inherit', display:'flex' }}
+    >
+      <div className="product-card" style={{ width:'100%' }}>
+        {/* Image */}
+        <div className="product-card-img-wrap">
+          <img
+            src={product.thumbnail}
+            alt={product.name}
+            className="product-card-img"
+          />
+          {product.discountPct > 0 && (
+            <span className="product-badge product-badge-discount">
+              -{product.discountPct}%
+            </span>
+          )}
+          {lowStock && !outOfStock && (
+            <span className="product-badge product-badge-low" style={{ top:'auto', bottom:12, right:'auto', left:12 }}>
+              Only {product.stock} left
+            </span>
+          )}
+          {outOfStock && (
+            <div className="product-oos-overlay">
+              <span>Out of Stock</span>
             </div>
-        )
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="product-card-body">
+          {product.category?.name && (
+            <span className="product-cat">{product.category.name}</span>
+          )}
+          <h3 className="product-name">{product.name}</h3>
+
+          <div style={{ display:'flex', alignItems:'center', gap:6, margin:'6px 0 10px' }}>
+            <StarRating rating={product.rating} />
+            <span style={{ fontSize:12, color:'var(--fog)' }}>({product.reviewCount})</span>
+          </div>
+
+          <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:6 }}>
+            <span className="product-price">
+              {discounted ? fmtINR(discounted) : fmtINR(product.price)}
+            </span>
+            {discounted && (
+              <span className="product-price-orig">{fmtINR(product.price)}</span>
+            )}
+          </div>
+
+          {product.seller?.storeName && (
+            <p style={{ fontSize:12, color:'var(--fog)', marginBottom:14 }}>
+              by <span style={{ fontWeight:600 }}>{product.seller.storeName}</span>
+            </p>
+          )}
+
+          <button
+            onClick={handleClick}
+            disabled={outOfStock || adding}
+            className={`product-atc-btn${outOfStock ? ' product-atc-disabled' : ''}`}
+          >
+            {adding ? (
+              <span style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                <span className="spinner-sm" /> Adding…
+              </span>
+            ) : outOfStock ? 'Out of Stock' : 'Add to Cart'}
+          </button>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+export default function ProductGrid({ products = [], loading }) {
+  const { addToCart } = useCartStore()
+
+  /**
+   * THE FIX:
+   * 1. POST to backend API (persists to DB)
+   * 2. addToCart(product, 1) — syncs local Zustand store so CartPage sees it
+   * Both must happen together.
+   */
+  async function handleAddToCart(product) {
+    try {
+      await apiClient.post('/cart', {
+        productId: product.id,
+        quantity: 1,
+      })
+      // ✅ also update local store so cart page reflects immediately
+      addToCart(product, 1)
+      toast.success(`${product.name} added to cart`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add to cart')
     }
+  }
 
-    if(products.length === 0){
-        return (
-            <div className="text-center py-16 ">
-            <p className='text-gray-500 text-lg'>No Products found</p>
-            </div>
-        )
-    }
-
-
+  if (loading) {
     return (
-     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="product-grid">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="product-skeleton" />
+        ))}
+      </div>
+    )
+  }
+
+  if (products.length === 0) {
+    return (
+      <div style={{ textAlign:'center', padding:'64px 0' }}>
+        <div style={{ fontSize:48, marginBottom:16 }}>🔍</div>
+        <p style={{ color:'var(--fog)', fontSize:16 }}>No products found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="product-grid">
       {products.map(product => (
         <ProductCard
           key={product.id}
@@ -51,93 +162,5 @@ export default function ProductGrid({ products =[], loading}){
         />
       ))}
     </div>
-    )
-
-    function ProductCard({product, onAddToCart }) {
-    const discountedPrice = product.price - (product.price * ( product.discountPct / 100 ))
-
-        return (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-      {/* Image */}
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
-        <img
-          src={product.thumbnail}
-          alt={product.name}
-          className="w-full h-full object-cover hover:scale-110 transition-transform"
-        />
-        {product.discountPct > 0 && (
-          <div className="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-            -{product.discountPct}%
-          </div>
-        )}
-        {product.stock < 5 && product.stock > 0 && (
-          <div className="absolute bottom-3 left-3 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-            Low Stock
-          </div>
-        )}
-        {product.stock === 0 && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <p className="text-white font-bold">Out of Stock</p>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="p-4 space-y-3">
-        {/* Category */}
-        <p className="text-xs text-gray-500 uppercase font-semibold">
-          {product.category?.name}
-        </p>
-
-        {/* Name */}
-        <Link href={`/products/${product.id}`}>
-          <h3 className="font-semibold text-gray-900 hover:text-primary transition-colors line-clamp-2 cursor-pointer">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Rating */}
-        <div className="flex items-center gap-2">
-          <span className="text-yellow-400">
-            {'⭐'.repeat(Math.round(product.rating))}
-          </span>
-          <span className="text-sm text-gray-600">
-            ({product.reviewCount})
-          </span>
-        </div>
-
-        {/* Price */}
-        <div className="flex items-baseline gap-2">
-          <span className="text-lg font-bold text-gray-900">
-            ${discountedPrice.toFixed(2)}
-          </span>
-          {product.discountPct > 0 && (
-            <span className="text-sm text-gray-500 line-through">
-              ${product.price.toFixed(2)}
-            </span>
-          )}
-        </div>
-
-        {/* Seller */}
-        <p className="text-xs text-gray-600">
-          by <span className="font-medium">{product.seller?.storeName}</span>
-        </p>
-
-        {/* Add to Cart Button */}
-        <button
-          onClick={() => handleAddToCart(product)}
-          disabled={product.stock === 0}
-          className={`w-full py-2 rounded-lg font-medium transition-colors ${
-            product.stock === 0
-              ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              : 'bg-primary text-white hover:opacity-90'
-          }`}
-        >
-          {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-        </button>
-      </div>
-    </div>
-        )
-    }
-    
+  )
 }

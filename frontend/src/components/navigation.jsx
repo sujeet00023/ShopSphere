@@ -24,7 +24,7 @@ export default function Navigation(){
         logout()
         setDropDownOpen(false)
         setMobileMenuOpen(false)
-        router.push('pages/auth/login')
+        router.push('/pages/auth/login')
     }
 
     return (
@@ -45,7 +45,7 @@ export default function Navigation(){
             <Link href="/pages/products" className="text-gray-700 hover:text-primary transition-colors">
               Products
             </Link>
-            <Link href="/about" className="text-gray-700 hover:text-primary transition-colors">
+            <Link href="/pages/about" className="text-gray-700 hover:text-primary transition-colors">
               About
             </Link>
             <Link href="/contact" className="text-gray-700 hover:text-primary transition-colors">
@@ -57,7 +57,7 @@ export default function Navigation(){
            <div className="flex items-center gap-4">
             {/* Cart */}
             <Link
-              href="pages/cart"
+              href="/pages/cart"
               className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,7 +103,7 @@ export default function Navigation(){
                     </Link>
 
                     {user.role === 'SELLER' && (
-                      <Link href="pages/seller/dashboard" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                      <Link href="/pages/seller/dashboard" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                         🏪 Seller Dashboard
                       </Link>
                     )}
@@ -114,7 +114,7 @@ export default function Navigation(){
                       </Link>
                     )}
 
-                    <Link href="pages/orders" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                    <Link href="/pages/orders" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                       📦 My Orders
                     </Link>
 
@@ -169,7 +169,7 @@ export default function Navigation(){
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4 space-y-2">
             <Link
-              href="/products"
+              href="/pages/products"
               className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
             >
               Products
@@ -188,7 +188,7 @@ export default function Navigation(){
             </Link>
             {!user && (
               <Link
-                href="pages/auth/login"
+                href="/pages/auth/login"
                 className="block px-4 py-2 text-primary font-medium hover:bg-blue-50 rounded-lg"
               >
                 Sign In

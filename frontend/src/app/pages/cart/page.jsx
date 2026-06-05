@@ -1,156 +1,211 @@
 'use client'
 
-import Link from "next/link"
-import { useCartStore } from "../../../store/cartStore"
-import { useAuthStore } from "../../../store/authStore"
+import Link from 'next/link'
+import { useCartStore } from '../../../store/cartStore'
+import { useAuthStore } from '../../../store/authStore'
 import { useRouter } from 'next/navigation'
 
+const getName     = i => i.product?.name        ?? i.name        ?? '—'
+const getThumb    = i => i.product?.thumbnail   ?? i.thumbnail   ?? null
+const getPrice    = i => i.product?.price       ?? i.price       ?? 0
+const getDiscount = i => i.product?.discountPct ?? i.discountPct ?? 0
+const getStock    = i => i.product?.stock       ?? i.stock       ?? 99
+const fmtINR      = n => `₹${Number(n).toLocaleString('en-IN')}`
 
 export default function CartPage() {
-    const router = useRouter()
-    const {user} = useAuthStore()
-    const {items, removeFromCart, updateQuantity, clearCart, getTotals} = useCartStore()
-    const {subtotal, tax, total } = getTotals()
+  const router = useRouter()
+  const { user } = useAuthStore()
+  const { items, removeFromCart, updateQuantity, clearCart, getTotals } = useCartStore()
+  const { subtotal, tax, total } = getTotals()
 
-    if(items.length === 0) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center py-12">
-            <div className="text-5xl mb-4">🛒</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
-            <p className="text-gray-600 mb-6">Add some products to get started!</p>
-            <Link
-              href="pages/products"
-              className="inline-block bg-primary text-white px-6 py-3 rounded-lg font-bold hover:opacity-90"
-            >
-              Continue Shopping
-            </Link>
-          </div>
-        </div>
+  if (items.length === 0) return (
+    <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
+      <div style={{ maxWidth:640, margin:'0 auto', padding:'100px 24px', textAlign:'center' }}>
+        <div style={{ fontSize:64, marginBottom:20 }}>🛒</div>
+        <div className="divider" style={{ margin:'0 auto 20px' }} />
+        <h2 className="serif" style={{ fontSize:36, fontWeight:900, letterSpacing:'-0.03em', marginBottom:12 }}>
+          Your cart is empty
+        </h2>
+        <p style={{ color:'var(--fog)', fontSize:16, lineHeight:1.7, marginBottom:32 }}>
+          Looks like you haven&lsquo;t added anything yet. Discover thousands of great products!
+        </p>
+        <Link href="/pages/products"
+          className="btn btn-ink"
+          style={{ fontSize:15 }}>
+          Browse Products →
+        </Link>
       </div>
-        )
-    }
+    </div>
+  )
 
+  const itemCount = items.reduce((s, i) => s + i.quantity, 0)
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
+  return (
+    <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="divide-y divide-gray-200">
-                {items.map(item => (
-                  <div key={item.id} className="p-6 flex gap-6 hover:bg-gray-50">
-                    <img
-                      src={item.thumbnail}
-                      alt={item.name}
-                      className="w-24 h-24 object-cover rounded"
-                    />
+      {/* Sticky top bar */}
+      <div className="top-bar">
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <Link href="/pages/products" className="back-link">← Shop</Link>
+          <div style={{ width:1, height:18, background:'var(--stone)' }} />
+          <span style={{ fontSize:13, fontWeight:600, color:'var(--fog)' }}>
+            Cart{' '}
+            <span className="count-badge" style={{ marginLeft:4 }}>{itemCount}</span>
+          </span>
+        </div>
+        <span style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>{fmtINR(total)}</span>
+      </div>
 
-                    <div className="flex-1 space-y-2">
-                      <Link
-                        href={`/products/${item.id}`}
-                        className="font-bold text-gray-900 hover:text-primary"
+      <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(32px,5vw,56px) 24px' }}>
+
+        {/* Heading */}
+        <div className="fade-up" style={{ marginBottom:36 }}>
+          <div className="divider" style={{ marginBottom:14 }} />
+          <h1 className="serif" style={{ fontSize:'clamp(2.2rem,5vw,3.2rem)', fontWeight:900, letterSpacing:'-0.03em', lineHeight:1.1 }}>
+            Shopping Cart
+          </h1>
+          <p style={{ color:'var(--fog)', fontSize:15, marginTop:8 }}>
+            {itemCount} item{itemCount !== 1 ? 's' : ''} in your bag
+          </p>
+        </div>
+
+        <div className="cart-layout" style={{ display:'grid', gridTemplateColumns:'1fr 360px', gap:40, alignItems:'start' }}>
+
+          {/* Items */}
+          <div className="fade-up d1">
+            <div style={{ display:'flex', justifyContent:'space-between', paddingBottom:12, borderBottom:'1.5px solid var(--stone)', marginBottom:4 }}>
+              <span className="sec-label">Product</span>
+              <span className="sec-label">Total</span>
+            </div>
+
+            {items.map((item, idx) => {
+              const name      = getName(item)
+              const thumb     = getThumb(item)
+              const price     = getPrice(item)
+              const discount  = getDiscount(item)
+              const stock     = getStock(item)
+              const lineTotal = price * item.quantity
+              const discounted = discount > 0 ? price * (1 - discount / 100) : null
+
+              return (
+                <div key={item.id} className="cart-card" style={{ animationDelay:`${idx * 0.06}s` }}>
+
+                  {/* Thumbnail */}
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    {thumb
+                      ? <img src={thumb} alt={name} className="prod-img" />
+                      : <div className="prod-img" style={{ display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>📦</div>
+                    }
+                    {discount > 0 && (
+                      <span className="discount-pill" style={{ position:'absolute', top:-6, right:-6 }}>
+                        -{discount}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:10 }}>
+                    <div>
+                      <Link href={`/pages/products/${item.productId ?? item.id}`}
+                        style={{ fontWeight:700, fontSize:15, color:'var(--ink)', textDecoration:'none', display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', transition:'color 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--sky)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--ink)'}
                       >
-                        {item.name}
+                        {name}
                       </Link>
-                      <p className="text-sm text-gray-600">
-                        ${item.price.toFixed(2)} each
-                      </p>
-
-                      <div className="flex items-center gap-2 text-sm">
-                        <button
-                          onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                          className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-100"
-                        >
-                          −
-                        </button>
-                        <span className="px-3">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-100"
-                        >
-                          +
-                        </button>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
+                        {discounted ? (
+                          <>
+                            <span style={{ fontSize:14, fontWeight:700, color:'var(--ember)' }}>{fmtINR(discounted)}</span>
+                            <span style={{ fontSize:13, color:'var(--fog)', textDecoration:'line-through' }}>{fmtINR(price)}</span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize:14, color:'var(--fog)', fontWeight:500 }}>{fmtINR(price)} each</span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="text-right space-y-2">
-                      <p className="font-bold text-gray-900">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      >
-                        Remove
+                    <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
+                      <div className="qty-wrap">
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} aria-label="Decrease">−</button>
+                        <span className="qty-num">{item.quantity}</span>
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, Math.min(stock, item.quantity + 1))} aria-label="Increase">+</button>
+                      </div>
+                      {stock <= 5 && (
+                        <span style={{ fontSize:12, color:'var(--ember)', fontWeight:600 }}>Only {stock} left!</span>
+                      )}
+                      <button className="remove-btn" onClick={() => removeFromCart(item.id)}>
+                        <span>✕</span> Remove
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            <Link
-              href="/products"
-              className="text-primary font-medium hover:underline"
-            >
-              ← Continue Shopping
-            </Link>
+                  {/* Line total */}
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <div className="serif" style={{ fontSize:18, fontWeight:900, letterSpacing:'-0.02em' }}>
+                      {fmtINR(lineTotal)}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            <div style={{ marginTop:24 }}>
+              <Link href="/pages/products" className="back-link">← Continue Shopping</Link>
+            </div>
           </div>
 
           {/* Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4 sticky top-20">
-              <h2 className="text-xl font-bold">Order Summary</h2>
+          <div className="cart-summary-dark fade-up d2">
+            <div className="sec-label" style={{ color:'rgba(255,255,255,0.35)', marginBottom:20 }}>Order Summary</div>
 
-              <div className="space-y-2 border-b border-gray-200 pb-4">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Tax (10%)</span>
-                  <span>${tax.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Shipping</span>
-                  <span>Free</span>
-                </div>
-              </div>
+            {/* Per-item breakdown */}
+            <div style={{ borderBottom:'1px solid rgba(255,255,255,0.1)', paddingBottom:16, marginBottom:16 }}>
+              {items.map(item => {
+                const name     = getName(item)
+                const price    = getPrice(item)
+                const disc     = getDiscount(item)
+                const effPrice = disc > 0 ? price * (1 - disc / 100) : price
+                return (
+                  <div key={item.id} style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:'rgba(255,255,255,0.5)', padding:'5px 0', gap:8 }}>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                      {name} ×{item.quantity}
+                    </span>
+                    <span style={{ flexShrink:0 }}>{fmtINR(effPrice * item.quantity)}</span>
+                  </div>
+                )
+              })}
+            </div>
 
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span className="text-primary">${total.toFixed(2)}</span>
-              </div>
+            <div className="cart-sum-row"><span>Subtotal</span><span>{fmtINR(subtotal)}</span></div>
+            <div className="cart-sum-row"><span>Tax (10%)</span><span>{fmtINR(tax)}</span></div>
+            <div className="cart-sum-row">
+              <span>Shipping</span>
+              <span style={{ color:'#6fcf97', fontWeight:700 }}>Free</span>
+            </div>
 
-              <button
-                onClick={() => {
-                  if (user) {
-                    router.push('/pages/checkout')
-                  } else {
-                    router.push('/pages/auth/login')
-                  }
-                }}
-                className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:opacity-90"
-              >
-                Proceed to Checkout
-              </button>
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.12)', marginTop:12, paddingTop:18, display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:24 }}>
+              <span className="serif" style={{ fontSize:22, fontWeight:900 }}>Total</span>
+              <span className="serif" style={{ fontSize:28, fontWeight:900, letterSpacing:'-0.02em' }}>{fmtINR(total)}</span>
+            </div>
 
-              <button
-                onClick={clearCart}
-                className="w-full bg-gray-200 text-gray-900 py-2 rounded-lg font-medium hover:bg-gray-300"
-              >
-                Clear Cart
-              </button>
+            <button className="checkout-btn"
+              onClick={() => router.push(user ? '/pages/checkout' : '/pages/auth/login')}>
+              {user ? 'Proceed to Checkout →' : 'Sign in to Checkout'}
+            </button>
+
+            <button className="clear-btn" style={{ marginTop:12 }} onClick={clearCart}>
+              Clear Cart
+            </button>
+
+            <div style={{ marginTop:24, display:'flex', flexDirection:'column', gap:8 }}>
+              {['🔒 Secure Checkout','🚚 Free Shipping','↩ Easy Returns'].map(b => (
+                <div key={b} style={{ fontSize:12, color:'rgba(255,255,255,0.35)', fontWeight:500 }}>{b}</div>
+              ))}
             </div>
           </div>
         </div>
       </div>
     </div>
-    )
+  )
 }
