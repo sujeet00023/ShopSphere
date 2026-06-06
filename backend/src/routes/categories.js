@@ -17,6 +17,34 @@ router.get('/', async (req, res) => {
   }
 })
 
+router.post('/', async (req, res) => {
+  try {
+    const { name, slug, description, image } = req.body
+
+    console.log('BODY:', req.body)
+
+    const category = await prisma.category.create({
+      data: {
+        name: name.trim(),
+        slug: slug.trim(),
+        desc: description || null,
+        image: image || null,
+      },
+    })
+
+    res.status(201).json({
+      data: category,
+      message: 'Category created successfully',
+    })
+  } catch (err) {
+    console.error('CREATE CATEGORY ERROR:', err)
+
+    res.status(500).json({
+      message: err.message,
+    })
+  }
+})
+
 // ── GET /api/categories/:id (single category) ───────────────────────────
 router.get('/:id', async (req, res) => {
   try {

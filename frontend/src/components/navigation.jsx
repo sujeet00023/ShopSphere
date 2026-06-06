@@ -48,7 +48,7 @@ export default function Navigation(){
             <Link href="/pages/about" className="text-gray-700 hover:text-primary transition-colors">
               About
             </Link>
-            <Link href="/contact" className="text-gray-700 hover:text-primary transition-colors">
+            <Link href="/pages/contact" className="text-gray-700 hover:text-primary transition-colors">
               Contact
             </Link>
           </div>
@@ -118,7 +118,7 @@ export default function Navigation(){
                       📦 My Orders
                     </Link>
 
-                    <Link href="/settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                    <Link href="/pages/setting" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                       ⚙️ Settings
                     </Link>
 
@@ -175,13 +175,13 @@ export default function Navigation(){
               Products
             </Link>
             <Link
-              href="/about"
+              href="/pages/about"
               className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
             >
               About
             </Link>
             <Link
-              href="/contact"
+              href="/pages/contact"
               className="block px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg"
             >
               Contact

@@ -37,7 +37,7 @@ export default function OrdersPage() {
       <div style={{ textAlign:'center' }}>
         <div className="serif" style={{ fontSize:48, fontWeight:900, marginBottom:16 }}>Sign In</div>
         <p style={{ color:'var(--fog)', marginBottom:24 }}>Please sign in to view your orders</p>
-        <Link href="/auth/login" className="btn btn-ink">Sign In →</Link>
+        <Link href="/pages/auth/login" className="btn btn-ink">Sign In →</Link>
       </div>
     </div>
   )
