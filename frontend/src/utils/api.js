@@ -31,7 +31,7 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('authToken')
         localStorage.removeItem('user')
-        window.location.href = '/pages/auth/login'
+        window.location.href = '/auth/login'
       }
     }
     return Promise.reject(error)
