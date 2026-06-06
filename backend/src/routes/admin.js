@@ -133,7 +133,7 @@ router.get('/sellers', authMiddleware, requireRole('ADMIN'), async(req, res) =>{
     }
 })
 // GET /admin/products - Get all products
-router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+router.get('/products', authMiddleware, requireRole('ADMIN'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 20
@@ -154,7 +154,18 @@ router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req, res)
       skip,
       take: limit,
       include: {
-        seller: { select: { id: true, name: true, email: true } },
+        seller: {
+  select: {
+    id: true,
+    storeName: true,
+    user: {
+      select: {
+        name: true,
+        email: true
+      }
+    }
+  }
+},
         category: { select: { id: true, name: true } },
         reviews: { select: { rating: true } }
       },
@@ -187,7 +198,7 @@ router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req, res)
 })
  
 // GET /admin/products/:id - Get product details
-router.get('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+router.get('/products/:id', authMiddleware, requireRole('ADMIN'), async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: req.params.id },
