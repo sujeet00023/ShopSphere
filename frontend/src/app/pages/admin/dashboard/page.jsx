@@ -6,254 +6,61 @@ import apiClient from '../../../../utils/api'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
-/* ─── Color constants ─────────────────────────────────── */
-const STATUS_STYLES = {
-  PENDING:    { bg: 'rgba(251,191,36,0.12)',  color: '#fbbf24', dot: '#fbbf24'  },
-  CONFIRMED:  { bg: 'rgba(108,99,255,0.12)',  color: '#6c63ff', dot: '#6c63ff'  },
-  PROCESSING: { bg: 'rgba(167,139,250,0.12)', color: '#a78bfa', dot: '#a78bfa'  },
-  SHIPPED:    { bg: 'rgba(34,211,238,0.12)',  color: '#22d3ee', dot: '#22d3ee'  },
-  DELIVERED:  { bg: 'rgba(0,212,170,0.12)',   color: '#00d4aa', dot: '#00d4aa'  },
-  CANCELLED:  { bg: 'rgba(255,107,107,0.12)', color: '#ff6b6b', dot: '#ff6b6b'  },
+/* ── helpers ── */
+const fmtINR = n => `₹${Number(n || 0).toLocaleString('en-IN')}`
+const fmtNum = n => Number(n || 0).toLocaleString('en-IN')
+
+/* ── Status / Role maps ── */
+const STATUS_MAP = {
+  PENDING:    { bg:'#fef5e7', color:'#c07a00', dot:'#c07a00' },
+  CONFIRMED:  { bg:'#f0f4ff', color:'#5070d0', dot:'#5070d0' },
+  PROCESSING: { bg:'#fff3e0', color:'#e06c00', dot:'#e06c00' },
+  SHIPPED:    { bg:'#e8f0fe', color:'#1a6cff', dot:'#1a6cff' },
+  DELIVERED:  { bg:'#edf7ed', color:'#2d7a2d', dot:'#2d7a2d' },
+  CANCELLED:  { bg:'#fde8e8', color:'#c02020', dot:'#c02020' },
+}
+const ROLE_MAP = {
+  ADMIN:  { bg:'rgba(108,99,255,0.1)', color:'#6c63ff' },
+  SELLER: { bg:'rgba(45,122,45,0.1)',  color:'#2d7a2d' },
+  USER:   { bg:'var(--mist)',          color:'var(--fog)' },
 }
 
-const ROLE_STYLES = {
-  ADMIN:  { bg: 'rgba(108,99,255,0.12)', color: '#6c63ff' },
-  SELLER: { bg: 'rgba(0,212,170,0.12)',  color: '#00d4aa' },
-  USER:   { bg: 'rgba(156,163,175,0.12)',color: '#9ca3af' },
-}
-
-/* ─── Design tokens ───────────────────────────────────── */
-const T = {
-  bg:       '#0f1117',
-  surface:  '#181a23',
-  surface2: '#1e2130',
-  border:   'rgba(255,255,255,0.07)',
-  border2:  'rgba(255,255,255,0.13)',
-  accent:   '#6c63ff',
-  accent2:  '#00d4aa',
-  accent3:  '#ff6b6b',
-  accent4:  '#fbbf24',
-  text:     '#f0f1f8',
-  textSec:  '#9ca3af',
-  textMuted:'#6b7280',
-}
-
-/* ─── Inline style helpers ────────────────────────────── */
-const card = {
-  background: T.surface,
-  border: `0.5px solid ${T.border}`,
-  borderRadius: 14,
-  padding: '20px',
-}
-
-/* ══════════════════════════════════════════════════════════
-   GLOBAL STYLES (injected once)
-══════════════════════════════════════════════════════════ */
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
-  .adm-root *, .adm-root *::before, .adm-root *::after {
-    box-sizing: border-box; margin: 0; padding: 0;
-  }
-  .adm-root {
-    font-family: 'DM Sans', sans-serif;
-    background: ${T.bg};
-    color: ${T.text};
-    min-height: 100vh;
-    padding-bottom: 48px;
-  }
-  .adm-mono { font-family: 'DM Mono', monospace; }
-
-  /* ── Scrollbar ── */
-  .adm-root ::-webkit-scrollbar { width: 4px; height: 4px; }
-  .adm-root ::-webkit-scrollbar-track { background: transparent; }
-  .adm-root ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-
-  /* ── Stat card ── */
-  .adm-stat-card {
-    background: ${T.surface};
-    border: 0.5px solid ${T.border};
-    border-radius: 14px;
-    padding: 18px 20px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-    cursor: default;
-  }
-  .adm-stat-card:hover { border-color: ${T.border2}; }
-
-  /* ── Tab button ── */
-  .adm-tab {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 0.5px solid transparent;
-    cursor: pointer;
-    transition: all 0.15s;
-    color: ${T.textMuted};
-    background: transparent;
-    white-space: nowrap;
-  }
-  .adm-tab:hover { color: ${T.text}; background: ${T.surface}; }
-  .adm-tab.active {
-    color: ${T.accent};
-    background: rgba(108,99,255,0.12);
-    border-color: rgba(108,99,255,0.25);
-  }
-
-  /* ── Table ── */
-  .adm-table { width: 100%; border-collapse: collapse; }
-  .adm-table th {
-    font-size: 10px; font-weight: 600; color: ${T.textMuted};
-    text-transform: uppercase; letter-spacing: 0.08em;
-    padding: 0 16px 12px 0; text-align: left;
-    border-bottom: 0.5px solid ${T.border};
-    white-space: nowrap;
-  }
-  .adm-table td {
-    padding: 12px 16px 12px 0;
-    font-size: 13px; color: ${T.textSec};
-    border-bottom: 0.5px solid rgba(255,255,255,0.04);
-    vertical-align: middle;
-  }
-  .adm-table tr:last-child td { border-bottom: none; }
-  .adm-table tr:hover td { color: ${T.text}; }
-
-  /* ── Product row ── */
-  .adm-product-row {
-    display: flex; align-items: center;
-    padding: 10px 12px; border-radius: 10px; margin-bottom: 6px;
-    border: 0.5px solid transparent;
-    transition: all 0.15s; cursor: default;
-  }
-  .adm-product-row:hover { background: ${T.surface2}; border-color: ${T.border}; }
-
-  /* ── Bar chart ── */
-  .adm-bar {
-    width: 100%; border-radius: 4px 4px 0 0;
-    background: rgba(108,99,255,0.2);
-    border-top: 2px solid ${T.accent};
-    transition: background 0.2s;
-    cursor: pointer;
-    min-height: 4px;
-  }
-  .adm-bar:hover { background: rgba(108,99,255,0.38); }
-
-  /* ── Responsive grid ── */
-  .adm-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-  }
-  .adm-overview-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  /* ── Mobile ── */
-  @media (max-width: 900px) {
-    .adm-stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .adm-overview-grid { grid-template-columns: 1fr; }
-  }
-  @media (max-width: 520px) {
-    .adm-stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .adm-stat-card { padding: 14px 14px; }
-    .adm-table th, .adm-table td { padding-right: 10px; font-size: 12px; }
-  }
-  @media (max-width: 400px) {
-    .adm-stats-grid { grid-template-columns: 1fr; }
-  }
-
-  /* ── Large screen ── */
-  @media (min-width: 1400px) {
-    .adm-stats-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  }
-
-  /* ── Sidebar layout for large screens ── */
-  @media (min-width: 1200px) {
-    .adm-overview-grid { grid-template-columns: 1.2fr 0.8fr; }
-  }
-
-  /* ── Table scroll wrapper ── */
-  .adm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-  /* ── Donut wrap ── */
-  .adm-donut-wrap {
-    display: flex; align-items: center; gap: 20px;
-    flex-wrap: wrap;
-  }
-  @media (max-width: 520px) {
-    .adm-donut-wrap { flex-direction: column; align-items: flex-start; }
-    .adm-donut-wrap canvas { align-self: center; }
-  }
-
-  /* ── Tabs scroll ── */
-  .adm-tabs-wrap {
-    display: flex; gap: 4px;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .adm-tabs-wrap::-webkit-scrollbar { display: none; }
-
-  /* ── Hide on mobile ── */
-  @media (max-width: 640px) {
-    .adm-hide-mobile { display: none !important; }
-  }
-
-  /* ── Status pill ── */
-  .adm-status {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 500; padding: 3px 9px;
-    border-radius: 20px; white-space: nowrap;
-  }
-  .adm-status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-
-  /* ── Role pill ── */
-  .adm-role-pill {
-    font-size: 11px; font-weight: 500;
-    padding: 3px 9px; border-radius: 20px; white-space: nowrap;
-  }
-
-  /* ── Legend ── */
-  .adm-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 130px; }
-  .adm-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-  .adm-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-`
-
-function InjectStyles() {
-  useEffect(() => {
-    if (document.getElementById('adm-styles')) return
-    const el = document.createElement('style')
-    el.id = 'adm-styles'
-    el.textContent = CSS
-    document.head.appendChild(el)
-    return () => el.remove()
-  }, [])
-  return null
-}
-
-/* ══════════════════════════════════════════════════════════
-   STAT CARD
-══════════════════════════════════════════════════════════ */
-function StatCard({ title, value, icon, accentColor, change }) {
+/* ── StatusBadge ── */
+function StatusBadge({ status }) {
+  const s = STATUS_MAP[status] || { bg:'var(--mist)', color:'var(--fog)', dot:'var(--fog)' }
   return (
-    <div className="adm-stat-card">
-      <div style={{
-        position: 'absolute', top: 0, right: 0,
-        width: 56, height: 56, borderRadius: '0 14px 0 56px',
-        background: accentColor, opacity: 0.13,
-        pointerEvents: 'none',
-      }} />
-      <div style={{ fontSize: 11, fontWeight: 500, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-        {title}
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:999, fontSize:11, fontWeight:700, background:s.bg, color:s.color, textTransform:'uppercase', letterSpacing:'0.04em', whiteSpace:'nowrap' }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background:s.dot, flexShrink:0 }} />
+      {status}
+    </span>
+  )
+}
+
+/* ── RoleBadge ── */
+function RoleBadge({ role }) {
+  const r = ROLE_MAP[role] || ROLE_MAP.USER
+  return (
+    <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, background:r.bg, color:r.color, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+      {role}
+    </span>
+  )
+}
+
+/* ── StatCard ── */
+function StatCard({ title, value, icon, change, accent }) {
+  return (
+    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'22px 24px', position:'relative', overflow:'hidden', transition:'border-color 0.2s, box-shadow 0.2s' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor='var(--ink)'; e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,0.07)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor='var(--stone)'; e.currentTarget.style.boxShadow='none' }}>
+      {/* accent blob */}
+      <div style={{ position:'absolute', top:-20, right:-20, width:80, height:80, borderRadius:'50%', background:accent, opacity:0.08, pointerEvents:'none' }} />
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14 }}>
+        <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--fog)' }}>{title}</div>
+        <div style={{ width:36, height:36, borderRadius:10, background:accent, display:'flex', alignItems:'center', justifyContent:'center', fontSize:17, opacity:0.9 }}>{icon}</div>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: T.text, marginTop: 8, letterSpacing: -1, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
-        {value}
-      </div>
+      <div className="serif" style={{ fontSize:28, fontWeight:900, letterSpacing:'-0.03em', color:'var(--ink)', lineHeight:1 }}>{value}</div>
       {change && (
-        <div style={{ fontSize: 11, marginTop: 6, color: T.accent2, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize:12, color:'#2d7a2d', fontWeight:600, marginTop:8, display:'flex', alignItems:'center', gap:4 }}>
           ↑ {change}
         </div>
       )}
@@ -261,30 +68,24 @@ function StatCard({ title, value, icon, accentColor, change }) {
   )
 }
 
-
-
-
-/* ══════════════════════════════════════════════════════════
-   BAR CHART
-══════════════════════════════════════════════════════════ */
-function BarChart({ data }) {
-  const max = Math.max(...data.map(d => d.revenue))
+/* ── BarChart ── */
+function BarChart({ data = [] }) {
+  if (!data.length) return <div style={{ height:180, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--fog)', fontSize:14 }}>No data</div>
+  const max = Math.max(...data.map(d => d.revenue || 0), 1)
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 180 }}>
+    <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:180 }}>
       {data.map((d, i) => {
-        const pct = Math.max(4, Math.round((d.revenue / max) * 100))
+        const pct = Math.max(4, Math.round(((d.revenue||0) / max) * 100))
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%' }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%' }}>
-              <div
-                className="adm-bar"
-                style={{ height: `${pct}%` }}
-                title={`${d.month || months[i]}: $${d.revenue?.toLocaleString()}`}
-              />
+          <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%' }}
+            title={`${d.month || months[i]}: ${fmtINR(d.revenue)}`}>
+            <div style={{ flex:1, display:'flex', alignItems:'flex-end', width:'100%' }}>
+              <div style={{ width:'100%', height:`${pct}%`, borderRadius:'4px 4px 0 0', background:'var(--mist)', borderTop:'2px solid var(--ink)', minHeight:4, transition:'background 0.2s', cursor:'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--stone)'}
+                onMouseLeave={e => e.currentTarget.style.background='var(--mist)'} />
             </div>
-            <div style={{ fontSize: 9, color: T.textMuted, fontFamily: "'DM Mono', monospace", whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize:9, color:'var(--fog)', fontFamily:'DM Mono, monospace', whiteSpace:'nowrap' }}>
               {d.month || months[i]}
             </div>
           </div>
@@ -294,62 +95,54 @@ function BarChart({ data }) {
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   DONUT CHART
-══════════════════════════════════════════════════════════ */
-function DonutChart({ orders }) {
+/* ── DonutChart ── */
+function DonutChart({ orders = [] }) {
   const canvasRef = useRef(null)
-
-  const statusData = [
-    { label: 'Delivered',  color: '#00d4aa' },
-    { label: 'Shipped',    color: '#22d3ee' },
-    { label: 'Processing', color: '#a78bfa' },
-    { label: 'Pending',    color: '#fbbf24' },
-    { label: 'Confirmed',  color: '#6c63ff' },
-    { label: 'Cancelled',  color: '#ff6b6b' },
+  const STATUS_COLORS = [
+    { label:'Delivered',  color:'#2d7a2d' },
+    { label:'Shipped',    color:'#1a6cff' },
+    { label:'Processing', color:'#e06c00' },
+    { label:'Pending',    color:'#c07a00' },
+    { label:'Confirmed',  color:'#5070d0' },
+    { label:'Cancelled',  color:'#c02020' },
   ]
-
   const counts = {}
-  orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1 })
+  orders.forEach(o => { counts[o.status] = (counts[o.status]||0) + 1 })
   const total = orders.length || 1
-
-  const chartData = statusData.map(s => ({
-    ...s, val: counts[s.label.toUpperCase()] || 0
-  })).filter(s => s.val > 0)
+  const chartData = STATUS_COLORS.map(s => ({ ...s, val: counts[s.label.toUpperCase()]||0 })).filter(s => s.val > 0)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const canvas = canvasRef.current; if (!canvas) return
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, 130, 130)
     let start = -Math.PI / 2
     chartData.forEach(s => {
       const angle = (s.val / total) * Math.PI * 2
-      ctx.beginPath(); ctx.moveTo(65, 65)
-      ctx.arc(65, 65, 55, start, start + angle)
+      ctx.beginPath(); ctx.moveTo(65,65)
+      ctx.arc(65,65,55,start,start+angle)
       ctx.fillStyle = s.color; ctx.fill()
       start += angle
     })
-    ctx.beginPath(); ctx.arc(65, 65, 32, 0, Math.PI * 2)
-    ctx.fillStyle = T.surface; ctx.fill()
-    // center label
-    ctx.fillStyle = T.text
-    ctx.font = "600 16px 'DM Mono', monospace"
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
+    // hole
+    ctx.beginPath(); ctx.arc(65,65,33,0,Math.PI*2)
+    ctx.fillStyle = '#ffffff'; ctx.fill()
+    // center text
+    ctx.fillStyle = '#0a0a0a'
+    ctx.font = "700 15px 'DM Mono', monospace"
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(total, 65, 65)
   }, [orders])
 
   return (
-    <div className="adm-donut-wrap">
-      <canvas ref={canvasRef} width={130} height={130} style={{ flexShrink: 0 }} />
-      <div className="adm-legend">
-        {chartData.map((s, i) => (
-          <div key={i} className="adm-legend-item">
-            <div className="adm-legend-dot" style={{ background: s.color }} />
-            <span style={{ color: T.textSec, flex: 1 }}>{s.label}</span>
-            <span style={{ color: T.text, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
-              {Math.round((s.val / total) * 100)}%
+    <div style={{ display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
+      <canvas ref={canvasRef} width={130} height={130} style={{ flexShrink:0 }} />
+      <div style={{ display:'flex', flexDirection:'column', gap:7, flex:1, minWidth:130 }}>
+        {chartData.map((s,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
+            <div style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
+            <span style={{ color:'var(--fog)', flex:1 }}>{s.label}</span>
+            <span style={{ color:'var(--ink)', fontFamily:'DM Mono, monospace', fontSize:11, fontWeight:600 }}>
+              {Math.round((s.val/total)*100)}%
             </span>
           </div>
         ))}
@@ -358,236 +151,211 @@ function DonutChart({ orders }) {
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   STATUS / ROLE PILLS
-══════════════════════════════════════════════════════════ */
-function StatusBadge({ status }) {
-  const s = STATUS_STYLES[status] || { bg: 'rgba(156,163,175,0.1)', color: '#9ca3af', dot: '#9ca3af' }
+/* ── Loading spinner ── */
+function Spinner({ label='Loading…' }) {
   return (
-    <span className="adm-status" style={{ background: s.bg, color: s.color }}>
-      <span className="adm-status-dot" style={{ background: s.dot }} />
-      {status}
-    </span>
+    <div style={{ textAlign:'center', padding:'60px 0' }}>
+      <div className="spinner" style={{ margin:'0 auto 14px' }} />
+      <p style={{ color:'var(--fog)', fontSize:14 }}>{label}</p>
+    </div>
   )
 }
 
-function RoleBadge({ role }) {
-  const r = ROLE_STYLES[role] || ROLE_STYLES.USER
+/* ── Shared table wrapper ── */
+function TableWrap({ children }) {
   return (
-    <span className="adm-role-pill" style={{ background: r.bg, color: r.color }}>
-      {role}
-    </span>
+    <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        {children}
+      </table>
+    </div>
   )
 }
+const TH = ({ children, hide }) => (
+  <th style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.08em', padding:'0 14px 12px 0', textAlign:'left', borderBottom:'1.5px solid var(--stone)', whiteSpace:'nowrap', display: hide ? undefined : undefined }}
+    className={hide ? 'adm-hide-mobile' : ''}>
+    {children}
+  </th>
+)
+const TD = ({ children, hide, mono, bold }) => (
+  <td style={{ padding:'13px 14px 13px 0', fontSize:13, color: bold ? 'var(--ink)' : 'var(--fog)', borderBottom:'1px solid var(--mist)', verticalAlign:'middle', fontFamily: mono ? 'DM Mono, monospace' : 'inherit', fontWeight: bold ? 600 : 400 }}
+    className={hide ? 'adm-hide-mobile' : ''}>
+    {children}
+  </td>
+)
 
-/* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    OVERVIEW TAB
-══════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function OverviewTab({ dashboard }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div className="adm-overview-grid">
-        {/* Revenue Chart */}
-        <div style={card}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>
-            Monthly Revenue
-          </div>
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+      {/* Charts row */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }} className="adm-2col">
+        <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+          <div className="sec-label" style={{ marginBottom:18 }}>Monthly Revenue</div>
           <BarChart data={dashboard.revenueByMonth} />
         </div>
-
-        {/* Donut */}
-        <div style={card}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>
-            Order Status
-          </div>
+        <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+          <div className="sec-label" style={{ marginBottom:18 }}>Order Status Distribution</div>
           <DonutChart orders={dashboard.recentOrders} />
         </div>
       </div>
 
-
-<div
-  style={{
-    marginTop: '20px',
-    background: T.surface,
-    border: `1px solid ${T.border}`,
-    borderRadius: '14px',
-    padding: '20px',
-  }}
->
-  <h3
-    style={{
-      color: T.text,
-      fontSize: '18px',
-      fontWeight: '600',
-      marginBottom: '10px',
-    }}
-  >
-    Category Management
-  </h3>
-
-  <p
-    style={{
-      color: T.textMuted,
-      marginBottom: '16px',
-      fontSize: '13px',
-    }}
-  >
-    Create, edit and delete product categories.
-  </p>
-
-  <Link
-    href="/pages/admin/categories"
-    style={{
-      display: 'inline-block',
-      padding: '10px 18px',
-      background: T.accent,
-      color: '#fff',
-      borderRadius: '8px',
-      textDecoration: 'none',
-      fontWeight: '600',
-    }}
-  >
-    Manage Categories
-  </Link>
-</div>
+      {/* Category management card */}
+      <div style={{ background:'var(--ink)', borderRadius:16, padding:'24px 28px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:20, flexWrap:'wrap' }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(255,255,255,0.35)', marginBottom:8 }}>Quick Action</div>
+          <h3 className="serif" style={{ fontSize:22, fontWeight:900, color:'#fff', letterSpacing:'-0.02em', marginBottom:6 }}>Category Management</h3>
+          <p style={{ fontSize:14, color:'rgba(255,255,255,0.5)', lineHeight:1.6 }}>Create, edit, and manage product categories used by sellers.</p>
+        </div>
+        <Link href="/pages/admin/categories"
+          style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'13px 24px', background:'var(--ember)', color:'#fff', borderRadius:10, textDecoration:'none', fontWeight:700, fontSize:15, whiteSpace:'nowrap', transition:'opacity 0.2s, transform 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.opacity='0.88'; e.currentTarget.style.transform='translateY(-1px)' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='none' }}>
+          Manage Categories →
+        </Link>
+      </div>
 
       {/* Top Products */}
-      <div style={card}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>
-          Top 5 Products
+      <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+        <div className="sec-label" style={{ marginBottom:18 }}>Top 5 Products by Sales</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          {(dashboard.topProducts || []).map((product, idx) => (
+            <div key={product.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'12px 14px', borderRadius:10, transition:'background 0.15s', cursor:'default' }}
+              onMouseEnter={e => e.currentTarget.style.background='var(--mist)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              <span style={{ fontSize:13, fontFamily:'DM Mono, monospace', color:'var(--fog)', width:20, flexShrink:0, fontWeight:600 }}>
+                {idx+1}
+              </span>
+              {product.thumbnail && (
+                <img src={product.thumbnail} alt={product.name} style={{ width:36, height:36, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid var(--stone)' }} />
+              )}
+              <span style={{ fontSize:14, fontWeight:600, color:'var(--ink)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {product.name}
+              </span>
+              <span style={{ fontSize:13, color:'var(--fog)', fontFamily:'DM Mono, monospace', flexShrink:0 }}>
+                {fmtINR(product.price)}
+              </span>
+              <span style={{ fontSize:13, fontWeight:700, color:'#2d7a2d', flexShrink:0, fontFamily:'DM Mono, monospace' }}>
+                {product.sold} sold
+              </span>
+              <span style={{ fontSize:13, color:'#c07a00', flexShrink:0 }}>
+                {Number(product.rating||0).toFixed(1)}★
+              </span>
+            </div>
+          ))}
         </div>
-        {dashboard.topProducts.map((product, idx) => (
-          <div key={product.id} className="adm-product-row">
-            <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: T.textMuted, width: 20, flexShrink: 0 }}>
-              {idx + 1}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: T.text, flex: 1, margin: '0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {product.name}
-            </span>
-            <span style={{ fontSize: 12, color: T.textMuted, flexShrink: 0 }}>${product.price}</span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: T.accent2, fontFamily: "'DM Mono', monospace", marginLeft: 16, flexShrink: 0 }}>
-              {product.sold} sold
-            </span>
-            <span style={{ fontSize: 12, color: T.accent4, marginLeft: 12, flexShrink: 0 }}>
-              {product.rating}★
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    ORDERS TAB
-══════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function OrdersTab({ orders }) {
   return (
-    <div style={card}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>
-        Recent Orders
-      </div>
-      <div className="adm-table-scroll">
-        <table className="adm-table">
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th className="adm-hide-mobile">Amount</th>
-              <th className="adm-hide-mobile">Items</th>
-              <th>Status</th>
-              <th className="adm-hide-mobile">Date</th>
+    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+      <div className="sec-label" style={{ marginBottom:18 }}>Recent Orders</div>
+      <TableWrap>
+        <thead>
+          <tr>
+            <TH>Order #</TH>
+            <TH>Customer</TH>
+            <TH hide>Amount</TH>
+            <TH hide>Items</TH>
+            <TH>Status</TH>
+            <TH hide>Date</TH>
+          </tr>
+        </thead>
+        <tbody>
+          {(orders||[]).map(order => (
+            <tr key={order.id} style={{ transition:'background 0.12s' }}
+              onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+              onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+              <TD mono><span style={{ color:'var(--sky)', fontWeight:600 }}>{order.orderNumber}</span></TD>
+              <TD bold>{order.customer?.name}</TD>
+              <TD hide mono>{fmtINR(order.total)}</TD>
+              <TD hide>{order.items?.length || 0} items</TD>
+              <TD><StatusBadge status={order.status} /></TD>
+              <TD hide>{new Date(order.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</TD>
             </tr>
-          </thead>
-          <tbody>
-            {orders.map(order => (
-              <tr key={order.id}>
-                <td>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: T.accent, fontWeight: 500 }}>
-                    {order.orderNumber}
-                  </span>
-                </td>
-                <td style={{ color: T.text, fontWeight: 500 }}>{order.customer.name}</td>
-                <td className="adm-hide-mobile">
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12 }}>
-                    ${order.total?.toFixed(2)}
-                  </span>
-                </td>
-                <td className="adm-hide-mobile">{order.items.length} items</td>
-                <td><StatusBadge status={order.status} /></td>
-                <td className="adm-hide-mobile" style={{ fontSize: 12 }}>
-                  {new Date(order.createdAt).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </TableWrap>
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    SELLERS TAB
-══════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function SellersTab() {
   const [sellers, setSellers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search,  setSearch]  = useState('')
 
   useEffect(() => {
-    apiClient.get('/admin/seller')
+    apiClient.get('/admin/sellers')
       .then(({ data }) => setSellers(data.data))
       .catch(() => toast.error('Failed to load sellers'))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <LoadingRow label="sellers" />
+  const filtered = sellers.filter(s =>
+    s.storeName?.toLowerCase().includes(search.toLowerCase()) ||
+    s.user?.name?.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
-    <div style={card}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>
-        All Sellers
+    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+        <div className="sec-label">All Sellers ({sellers.length})</div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search sellers…"
+          style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:220, transition:'border-color 0.2s' }}
+          onFocus={e => e.target.style.borderColor='var(--ink)'}
+          onBlur={e => e.target.style.borderColor='var(--stone)'} />
       </div>
-      <div className="adm-table-scroll">
-        <table className="adm-table">
+      {loading ? <Spinner label="Loading sellers…" /> : (
+        <TableWrap>
           <thead>
             <tr>
-              <th>Store</th>
-              <th>Owner</th>
-              <th className="adm-hide-mobile">Products</th>
-              <th>Revenue</th>
-              <th>Rating</th>
+              <TH>Store</TH>
+              <TH>Owner</TH>
+              <TH hide>Products</TH>
+              <TH>Revenue</TH>
+              <TH>Rating</TH>
             </tr>
           </thead>
           <tbody>
-            {sellers.map(seller => (
-              <tr key={seller.id}>
-                <td style={{ color: T.text, fontWeight: 500 }}>{seller.storeName}</td>
-                <td>{seller.user.name}</td>
-                <td className="adm-hide-mobile" style={{ fontFamily: "'DM Mono', monospace" }}>
-                  {seller._count.products}
-                </td>
-                <td style={{ color: T.accent2, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500 }}>
-                  ${seller.totalEarnings.toFixed(2)}
-                </td>
-                <td style={{ color: T.accent4, fontFamily: "'DM Mono', monospace", fontSize: 13 }}>
-                  {seller.rating.toFixed(1)}★
-                </td>
+            {filtered.map(seller => (
+              <tr key={seller.id}
+                onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+                onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+                <TD bold>{seller.storeName}</TD>
+                <TD>{seller.user?.name}</TD>
+                <TD hide mono>{seller._count?.products || 0}</TD>
+                <TD mono><span style={{ color:'#2d7a2d', fontWeight:700 }}>{fmtINR(seller.totalEarnings)}</span></TD>
+                <TD mono><span style={{ color:'#c07a00' }}>{Number(seller.rating||0).toFixed(1)}★</span></TD>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </TableWrap>
+      )}
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    USERS TAB
-══════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 function UsersTab() {
-  const [users, setUsers] = useState([])
+  const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
+  const [search,  setSearch]  = useState('')
+  const [roleFilter, setRoleFilter] = useState('ALL')
 
   useEffect(() => {
     apiClient.get('/admin/users')
@@ -596,92 +364,145 @@ function UsersTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <LoadingRow label="users" />
+  const filtered = users.filter(u => {
+    const matchSearch = u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
+    const matchRole   = roleFilter === 'ALL' || u.role === roleFilter
+    return matchSearch && matchRole
+  })
 
   return (
-    <div style={card}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 16 }}>
-        All Users
+    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+        <div className="sec-label">All Users ({users.length})</div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+          {['ALL','USER','SELLER','ADMIN'].map(r => (
+            <button key={r} onClick={() => setRoleFilter(r)}
+              style={{ padding:'7px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', background: roleFilter===r ? 'var(--ink)' : 'var(--paper)', color: roleFilter===r ? '#fff' : 'var(--fog)', transition:'all 0.15s' }}>
+              {r}
+            </button>
+          ))}
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users…"
+            style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:200, transition:'border-color 0.2s' }}
+            onFocus={e => e.target.style.borderColor='var(--ink)'}
+            onBlur={e => e.target.style.borderColor='var(--stone)'} />
+        </div>
       </div>
-      <div className="adm-table-scroll">
-        <table className="adm-table">
+      {loading ? <Spinner label="Loading users…" /> : (
+        <TableWrap>
           <thead>
             <tr>
-              <th>Name</th>
-              <th className="adm-hide-mobile">Email</th>
-              <th>Role</th>
-              <th>Orders</th>
-              <th className="adm-hide-mobile">Joined</th>
+              <TH>Name</TH>
+              <TH hide>Email</TH>
+              <TH>Role</TH>
+              <TH>Orders</TH>
+              <TH hide>Joined</TH>
             </tr>
           </thead>
           <tbody>
-            {users.map(user => (
-              <tr key={user.id}>
-                <td style={{ color: T.text, fontWeight: 500 }}>{user.name}</td>
-                <td className="adm-hide-mobile" style={{ fontSize: 12 }}>{user.email}</td>
-                <td><RoleBadge role={user.role} /></td>
-                <td style={{ fontFamily: "'DM Mono', monospace" }}>{user._count.orders}</td>
-                <td className="adm-hide-mobile" style={{ fontSize: 12 }}>
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </td>
+            {filtered.map(user => (
+              <tr key={user.id}
+                onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+                onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+                <TD bold>{user.name}</TD>
+                <TD hide>{user.email}</TD>
+                <TD><RoleBadge role={user.role} /></TD>
+                <TD mono>{user._count?.orders || 0}</TD>
+                <TD hide>{new Date(user.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</TD>
               </tr>
             ))}
           </tbody>
-        </table>
+        </TableWrap>
+      )}
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════
+   PRODUCTS TAB
+══════════════════════════════════════════════════════ */
+function ProductsTab() {
+  const [products, setProducts] = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [search,   setSearch]   = useState('')
+
+  useEffect(() => {
+    apiClient.get('/admin/products')
+      .then(({ data }) => setProducts(data.data))
+      .catch(() => toast.error('Failed to load products'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filtered = products.filter(p =>
+    p.name?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+        <div className="sec-label">All Products ({products.length})</div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products…"
+          style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:220, transition:'border-color 0.2s' }}
+          onFocus={e => e.target.style.borderColor='var(--ink)'}
+          onBlur={e => e.target.style.borderColor='var(--stone)'} />
       </div>
+      {loading ? <Spinner label="Loading products…" /> : (
+        <TableWrap>
+          <thead>
+            <tr>
+              <TH>Product</TH>
+              <TH>Price</TH>
+              <TH hide>Stock</TH>
+              <TH hide>Sold</TH>
+              <TH>Status</TH>
+              <TH hide>Rating</TH>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.id}
+                onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+                onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+                <TD>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    {p.thumbnail && <img src={p.thumbnail} alt={p.name} style={{ width:32, height:32, borderRadius:6, objectFit:'cover', border:'1px solid var(--stone)' }} />}
+                    <span style={{ fontWeight:600, color:'var(--ink)', fontSize:13 }}>{p.name}</span>
+                  </div>
+                </TD>
+                <TD mono>{fmtINR(p.price)}</TD>
+                <TD hide mono>{p.stock}</TD>
+                <TD hide mono>{p.sold}</TD>
+                <TD>
+                  <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, background: p.isActive ? '#edf7ed' : 'var(--mist)', color: p.isActive ? '#2d7a2d' : 'var(--fog)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                    {p.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </TD>
+                <TD hide mono><span style={{ color:'#c07a00' }}>{Number(p.rating||0).toFixed(1)}★</span></TD>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrap>
+      )}
     </div>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   LOADING / EMPTY STATES
-══════════════════════════════════════════════════════════ */
-function LoadingRow({ label }) {
-  return (
-    <div style={{ ...card, textAlign: 'center', padding: '40px 20px', color: T.textMuted, fontSize: 13 }}>
-      <div style={{
-        width: 32, height: 32,
-        border: `2px solid ${T.accent}`,
-        borderTopColor: 'transparent',
-        borderRadius: '50%',
-        animation: 'adm-spin 0.8s linear infinite',
-        margin: '0 auto 12px',
-      }} />
-      Loading {label}...
-      <style>{`@keyframes adm-spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-}
-
-function FullPageLoader() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '100vh', background: T.bg, flexDirection: 'column', gap: 16,
-    }}>
-      <div style={{
-        width: 40, height: 40,
-        border: `2px solid ${T.accent}`,
-        borderTopColor: 'transparent',
-        borderRadius: '50%',
-        animation: 'adm-spin 0.8s linear infinite',
-      }} />
-      <span style={{ fontSize: 13, color: T.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-        Loading dashboard...
-      </span>
-      <style>{`@keyframes adm-spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    MAIN EXPORT
-══════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
+const TABS = [
+  { id:'overview',  label:'Overview',  icon:'◎' },
+  { id:'orders',    label:'Orders',    icon:'◈' },
+  { id:'products',  label:'Products',  icon:'✦' },
+  { id:'sellers',   label:'Sellers',   icon:'🏪' },
+  { id:'users',     label:'Users',     icon:'👥' },
+]
+
 export default function AdminDashBoard() {
   const { user } = useAuthStore()
-  const [dashboard, setDashboard] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [dashboard,  setDashboard]  = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [activeTab,  setActiveTab]  = useState('overview')
+  const [mobileMenu, setMobileMenu] = useState(false)
 
   useEffect(() => { fetchDashboard() }, [])
 
@@ -696,116 +517,115 @@ export default function AdminDashBoard() {
     }
   }
 
-  if (loading) return <><InjectStyles /><FullPageLoader /></>
-  if (!dashboard) return (
-    <div style={{ padding: 40, textAlign: 'center', color: T.accent3, fontFamily: "'DM Sans', sans-serif" }}>
-      Failed to load dashboard
+  if (loading) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, background:'var(--paper)' }}>
+      <div className="spinner" />
+      <p style={{ color:'var(--fog)', fontSize:15 }}>Loading dashboard…</p>
     </div>
   )
 
-  const TABS = ['overview', 'orders', 'sellers', 'users']
+  if (!dashboard) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--paper)' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ fontSize:48, marginBottom:16 }}>⚠️</div>
+        <div className="serif" style={{ fontSize:24, fontWeight:900 }}>Failed to load dashboard</div>
+        <button onClick={fetchDashboard} style={{ marginTop:20, padding:'12px 24px', background:'var(--ink)', color:'#fff', border:'none', borderRadius:8, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Retry</button>
+      </div>
+    </div>
+  )
+
+  const { status } = dashboard
 
   return (
-    <div className="adm-root">
-      <InjectStyles />
+    <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
 
-      {/* ── Header ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '20px 24px 0',
-        maxWidth: 1600, margin: '0 auto',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 8, height: 8, borderRadius: '50%', background: T.accent,
-            boxShadow: `0 0 0 3px rgba(108,99,255,0.2)`,
-          }} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: T.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Admin Console
-          </span>
+      {/* ── Top bar ── */}
+      <div className="top-bar" style={{ justifyContent:'space-between' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <Link href="/" className="back-link">← Home</Link>
+          <div style={{ width:1, height:18, background:'var(--stone)' }} />
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:8, height:8, borderRadius:'50%', background:'#2d7a2d', boxShadow:'0 0 0 3px rgba(45,122,45,0.2)' }} />
+            <span style={{ fontSize:12, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.07em' }}>Admin Console</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            fontSize: 11, fontWeight: 500, padding: '4px 10px',
-            borderRadius: 20, background: 'rgba(108,99,255,0.15)',
-            color: T.accent, border: `0.5px solid rgba(108,99,255,0.3)`,
-            letterSpacing: '0.04em',
-          }}>
-            ● Live
-          </span>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: `linear-gradient(135deg, ${T.accent}, ${T.accent2})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 600, color: '#fff', flexShrink: 0,
-          }}>
-            {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <Link href="/pages/admin/categories"
+            style={{ padding:'8px 16px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontWeight:600, color:'var(--ink)', textDecoration:'none', transition:'border-color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor='var(--ink)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor='var(--stone)'}>
+            Categories
+          </Link>
+          <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--ink)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#fff' }}>
+            {user?.name?.slice(0,2).toUpperCase() || 'AD'}
           </div>
         </div>
       </div>
 
-      {/* ── Title ── */}
-      <div style={{ padding: '20px 24px 0', maxWidth: 1600, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 600, color: T.text, letterSpacing: -0.5 }}>
-          Dashboard
-        </h1>
-        <p style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>
-          Platform overview &amp; management
-        </p>
-      </div>
+      <div style={{ maxWidth:1280, margin:'0 auto', padding:'clamp(32px,5vw,52px) 24px' }}>
 
-      {/* ── Stat Cards ── */}
-      <div style={{ padding: '20px 24px 0', maxWidth: 1600, margin: '0 auto' }}>
-        <div className="adm-stats-grid">
-          <StatCard
-            title="Total Users"
-            value={dashboard.status.totalUsers.toLocaleString()}
-            accentColor={T.accent}
-            change="+12.4% this month"
-          />
-          <StatCard
-            title="Total Sellers"
-            value={dashboard.status.totalSellers.toLocaleString()}
-            accentColor={T.accent2}
-            change="+8.1% this month"
-          />
-          <StatCard
-            title="Total Orders"
-            value={dashboard.status.totalOrders.toLocaleString()}
-            accentColor={T.accent4}
-            change="+22.7% this month"
-          />
-          <StatCard
-            title="Total Revenue"
-            value={`$${dashboard.status.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            accentColor={T.accent3}
-            change="+18.3% this month"
-          />
+        {/* ── Page heading ── */}
+        <div className="fade-up" style={{ marginBottom:32 }}>
+          <div className="divider" style={{ marginBottom:14 }} />
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', flexWrap:'wrap', gap:16 }}>
+            <div>
+              <h1 className="serif" style={{ fontSize:'clamp(2rem,4vw,3rem)', fontWeight:900, letterSpacing:'-0.03em', lineHeight:1.1 }}>
+                Dashboard
+              </h1>
+              <p style={{ color:'var(--fog)', fontSize:15, marginTop:6 }}>Platform overview &amp; management</p>
+            </div>
+            <button onClick={fetchDashboard}
+              style={{ padding:'10px 18px', border:'1.5px solid var(--stone)', borderRadius:8, background:'var(--paper)', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', color:'var(--fog)', transition:'all 0.15s', display:'flex', alignItems:'center', gap:6 }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor='var(--ink)'; e.currentTarget.style.color='var(--ink)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor='var(--stone)'; e.currentTarget.style.color='var(--fog)' }}>
+              ↻ Refresh
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* ── Tabs ── */}
-      <div style={{ padding: '20px 24px 0', maxWidth: 1600, margin: '0 auto' }}>
-        <div className="adm-tabs-wrap">
+        {/* ── Stat cards ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:28 }} className="adm-stats-grid">
+          <StatCard title="Total Users"    value={fmtNum(status.totalUsers)}    icon="👥" accent="rgba(108,99,255,0.15)"  change="+12.4% this month" />
+          <StatCard title="Total Sellers"  value={fmtNum(status.totalSellers)}  icon="🏪" accent="rgba(45,122,45,0.15)"   change="+8.1% this month" />
+          <StatCard title="Total Orders"   value={fmtNum(status.totalOrders)}   icon="📦" accent="rgba(192,122,0,0.15)"   change="+22.7% this month" />
+          <StatCard title="Total Revenue"  value={fmtINR(status.totalRevenue)}  icon="₹"  accent="rgba(232,67,10,0.12)"   change="+18.3% this month" />
+        </div>
+
+        {/* ── Tabs ── */}
+        <div style={{ display:'flex', gap:4, marginBottom:24, overflowX:'auto', WebkitOverflowScrolling:'touch', paddingBottom:4 }}>
           {TABS.map(tab => (
-            <button
-              key={tab}
-              className={`adm-tab${activeTab === tab ? ' active' : ''}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:10, border:'1.5px solid', borderColor: activeTab===tab.id ? 'var(--ink)' : 'transparent', background: activeTab===tab.id ? 'var(--ink)' : 'transparent', color: activeTab===tab.id ? '#fff' : 'var(--fog)', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', transition:'all 0.15s' }}
+              onMouseEnter={e => { if (activeTab!==tab.id) { e.currentTarget.style.color='var(--ink)'; e.currentTarget.style.borderColor='var(--stone)' }}}
+              onMouseLeave={e => { if (activeTab!==tab.id) { e.currentTarget.style.color='var(--fog)'; e.currentTarget.style.borderColor='transparent' }}}>
+              <span>{tab.icon}</span>{tab.label}
             </button>
           ))}
         </div>
+
+        {/* ── Tab content ── */}
+        <div className="fade-up">
+          {activeTab === 'overview'  && <OverviewTab dashboard={dashboard} />}
+          {activeTab === 'orders'    && <OrdersTab orders={dashboard.recentOrders} />}
+          {activeTab === 'products'  && <ProductsTab />}
+          {activeTab === 'sellers'   && <SellersTab />}
+          {activeTab === 'users'     && <UsersTab />}
+        </div>
       </div>
 
-      {/* ── Tab Content ── */}
-      <div style={{ padding: '16px 24px 0', maxWidth: 1600, margin: '0 auto' }}>
-        {activeTab === 'overview' && <OverviewTab dashboard={dashboard} />}
-        {activeTab === 'orders'   && <OrdersTab orders={dashboard.recentOrders} />}
-        {activeTab === 'sellers'  && <SellersTab />}
-        {activeTab === 'users'    && <UsersTab />}
-      </div>
+      <style>{`
+        @media (max-width: 900px) {
+          .adm-stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+          .adm-2col { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 520px) {
+          .adm-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .adm-hide-mobile { display: none !important; }
+        }
+        @media (max-width: 380px) {
+          .adm-stats-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }

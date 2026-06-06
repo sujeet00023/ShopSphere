@@ -132,6 +132,83 @@ router.get('/sellers', authMiddleware, requireRole('ADMIN'), async(req, res) =>{
         res.status(500).json({ message: 'Failed to fetch sellers'})
     }
 })
+// GET /admin/products - Get all products
+router.get('/products', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 20
+    const skip = (page - 1) * limit
+    const search = req.query.search || ''
+ 
+    const where = search 
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } }
+          ]
+        }
+      : {}
+ 
+    const products = await prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      include: {
+        seller: { select: { id: true, name: true, email: true } },
+        category: { select: { id: true, name: true } },
+        reviews: { select: { rating: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+ 
+    const total = await prisma.product.count({ where })
+ 
+    const productsWithStats = products.map(p => ({
+      ...p,
+      avgRating: p.reviews.length > 0 
+        ? (p.reviews.reduce((sum, r) => sum + r.rating, 0) / p.reviews.length).toFixed(1)
+        : 0,
+      reviewCount: p.reviews.length
+    }))
+ 
+    res.json({
+      status: 'success',
+      data: productsWithStats,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message })
+  }
+})
+ 
+// GET /admin/products/:id - Get product details
+router.get('/products/:id', authMiddleware, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      include: {
+        seller: true,
+        category: true,
+        reviews: true
+      }
+    })
+ 
+    if (!product) {
+      return res.status(404).json({ status: 'error', message: 'Product not found' })
+    }
+ 
+    res.json({ status: 'success', data: product })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message })
+  }
+})
+
+
 
 // GET /api/admin/orders (all orders)
 router.get('/orders', authMiddleware, requireRole('ADMIN'), async (req, res) =>{
