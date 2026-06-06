@@ -1,10 +1,10 @@
-/* eslint-disable react-hooks/immutability */
 'use client'
-
+/* eslint-disable react-hooks/immutability */
 import { useEffect, useState, useRef } from 'react'
 import { useAuthStore } from '../../../../store/authStore'
 import apiClient from '../../../../utils/api'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 
 /* ─── Color constants ─────────────────────────────────── */
 const STATUS_STYLES = {
@@ -261,6 +261,9 @@ function StatCard({ title, value, icon, accentColor, change }) {
   )
 }
 
+
+
+
 /* ══════════════════════════════════════════════════════════
    BAR CHART
 ══════════════════════════════════════════════════════════ */
@@ -400,6 +403,53 @@ function OverviewTab({ dashboard }) {
           <DonutChart orders={dashboard.recentOrders} />
         </div>
       </div>
+
+
+<div
+  style={{
+    marginTop: '20px',
+    background: T.surface,
+    border: `1px solid ${T.border}`,
+    borderRadius: '14px',
+    padding: '20px',
+  }}
+>
+  <h3
+    style={{
+      color: T.text,
+      fontSize: '18px',
+      fontWeight: '600',
+      marginBottom: '10px',
+    }}
+  >
+    Category Management
+  </h3>
+
+  <p
+    style={{
+      color: T.textMuted,
+      marginBottom: '16px',
+      fontSize: '13px',
+    }}
+  >
+    Create, edit and delete product categories.
+  </p>
+
+  <Link
+    href="/pages/admin/categories"
+    style={{
+      display: 'inline-block',
+      padding: '10px 18px',
+      background: T.accent,
+      color: '#fff',
+      borderRadius: '8px',
+      textDecoration: 'none',
+      fontWeight: '600',
+    }}
+  >
+    Manage Categories
+  </Link>
+</div>
 
       {/* Top Products */}
       <div style={card}>
