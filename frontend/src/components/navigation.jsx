@@ -103,8 +103,7 @@ export default function Navigation(){
                     </Link> */}
 
                     {user.role === 'SELLER' && (
-                      <Link href="/pages/seller/dashboard" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        onClick={() => setDropDownOpen(false)}
+                      <Link href="/pages/seller/dashboard" onClick={() => setDropDownOpen(false)}   className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                         🏪 Seller Dashboard
                       </Link>
                     )}
