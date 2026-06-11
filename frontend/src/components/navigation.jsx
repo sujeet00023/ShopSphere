@@ -98,27 +98,36 @@ export default function Navigation(){
                       {user.email}
                     </p>
 
-                    <Link href="/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                   {/*  <Link href="/pages/profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                       👤 Profile
-                    </Link>
+                    </Link> */}
 
                     {user.role === 'SELLER' && (
                       <Link href="/pages/seller/dashboard" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                        onClick={() => setDropDownOpen(false)}
                         🏪 Seller Dashboard
                       </Link>
                     )}
 
+                    {user.role === 'CUSTOMER' && (
+                      
+                      <Link href="/pages/user/dashboard" onClick={() => setDropDownOpen(false)} className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                        
+                        🏪 Dashboard
+                      </Link>
+                    )}
+
                     {user.role === 'ADMIN' && (
-                      <Link href="/pages/admin/dashboard" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                      <Link href="/pages/admin/dashboard" onClick={() => setDropDownOpen(false)}  className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                         ⚙️ Admin Dashboard
                       </Link>
                     )}
 
-                    <Link href="/pages/orders" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                    <Link href="/pages/orders" onClick={() => setDropDownOpen(false)}  className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                       📦 My Orders
                     </Link>
 
-                    <Link href="/pages/setting" className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
+                    <Link href="/pages/setting" onClick={() => setDropDownOpen(false)}  className="block px-4 py-2 text-gray-700 hover:bg-gray-50">
                       ⚙️ Settings
                     </Link>
 

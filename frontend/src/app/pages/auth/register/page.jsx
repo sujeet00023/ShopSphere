@@ -53,7 +53,7 @@ export default function RegisterPage() {
       
       // Redirect based on role
       if (formData.role === 'SELLER') {
-        router.push('/seller/dashboard')
+        router.push('/pages/seller/dashboard')
       } else if (formData.role === 'ADMIN') {
         router.push('/pages/admin/dashboard')
       } else {
