@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import apiClient from '../utils/api'
 
 export const useAuthStore = create(
   persist(
@@ -10,7 +9,12 @@ export const useAuthStore = create(
       loading: false,
       error: null,
 
-      register: async (email, password, name, role = 'CUSTOMER') => {
+      hydrated: false,
+
+      setHydrated: (state) => set({ hydrated: state }),
+
+      // ...your actions
+       register: async (email, password, name, role = 'CUSTOMER') => {
         set({ loading: true, error: null })
         try {
           const { data } = await apiClient.post('/auth/register', {
@@ -52,7 +56,15 @@ export const useAuthStore = create(
     }),
     {
       name: 'auth-store',
-      partialize: (state) => ({ user: state.user, token: state.token }),
+
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+      }),
+
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true)
+      },
     }
   )
 )

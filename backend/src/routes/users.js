@@ -5,6 +5,124 @@ import { authMiddleware } from '../middleware/auth.js'
 const router = express.Router()
 const prisma = new PrismaClient()
 
+
+// GET /user/dashboard - User dashboard overview
+router.get('/dashboard', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id
+ 
+    // Fetch all data in parallel
+    const [
+      orders,
+      wishlist,
+      addresses,
+      profile,
+    ] = await Promise.all([
+      prisma.order.findMany({
+        where: { customerId: userId },
+        include: {
+          items: {
+            include: { product: { select: { name: true, price: true, thumbnail: true } } }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+ 
+      prisma.wishlistItem.findMany({
+  where: { userId },
+  include: {
+    product: {
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        thumbnail: true
+      }
+    }
+  }
+}),
+      prisma.address.findMany({
+  where: { userId }
+}),
+ 
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, email: true, createdAt: true }
+      })
+    ])
+ 
+    // Calculate stats
+    const totalOrders = orders.length
+    const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0)
+    const pendingOrders = orders.filter(o => !['DELIVERED', 'CANCELLED'].includes(o.status)).length
+    const wishlistCount = wishlist.length
+ 
+    // Format recent orders (last 5)
+    const recentOrders = orders.slice(0, 5).map(order => ({
+      id: order.id,
+      createdAt: order.createdAt,
+      total: order.total,
+      status: order.status,
+    }))
+ 
+    // Format wishlist items
+    const formattedWishlist = wishlist.map(item => ({
+      id: item.id,
+      productId: item.productId,
+      productName: item.product.name,
+      price: item.product.price,
+      productImage: item.product.image,
+    }))
+ 
+    // Format addresses
+  const formattedAddresses = addresses.map(addr => ({
+  id: addr.id,
+  fullName: addr.fullName,
+  street: addr.street,
+  city: addr.city,
+  state: addr.state,
+  zipCode: addr.zipCode,
+  country: addr.country,
+  phone: addr.phone,
+}))
+ 
+    res.json({
+      status: 'success',
+      data: {
+        stats: {
+          totalOrders,
+          totalSpent: parseFloat(totalSpent.toFixed(2)),
+          pendingOrders,
+          wishlistCount,
+        },
+        recentOrders,
+        orders: orders.map(order => ({
+          id: order.id,
+          createdAt: order.createdAt,
+          total: order.total,
+          status: order.status,
+        })),
+        wishlist: formattedWishlist,
+        addresses: formattedAddresses,
+        profile: {
+          name: profile.name,
+          email: profile.email,
+          createdAt: profile.createdAt,
+        }
+      }
+    })
+  } catch (err) {
+  console.error('Dashboard Error:', err)
+
+  res.status(500).json({
+    status: 'error',
+    message: err.message
+  })
+}
+})
+
+
+
 // ── GET /api/users/profile (get user profile) ────────────────────────────
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
