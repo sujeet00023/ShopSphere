@@ -92,12 +92,12 @@ export default function LoginPage(){
         </div>
 
         {/* Demo accounts */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+        {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
           <p className="font-bold text-blue-900 mb-2">Demo Accounts:</p>
           <p className="text-blue-800">Customer: customer@example.com / password123</p>
           <p className="text-blue-800">Seller: seller1@example.com / password123</p>
           <p className="text-blue-800">Admin: admin@example.com / password123</p>
-        </div>
+        </div> */}
       </div>
     </div>
     )
