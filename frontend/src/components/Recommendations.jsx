@@ -95,12 +95,18 @@ export default function Recommendations({ productId, type = 'similar'}) {
                 </div>
 
                 {/* Price */}
-                <div className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-gray-900">${discountedPrice.toFixed(2)}</span>
-                  {product.discountPct > 0 && (
-                    <span className="text-sm text-gray-500 line-through">${product.price.toFixed(2)}</span>
-                  )}
-                </div>
+                {/* Price */}
+<div className="flex items-baseline gap-2">
+  <span className="text-lg font-bold text-gray-900">
+    ₹{Math.round(discountedPrice).toLocaleString('en-IN')}
+  </span>
+
+  {product.discountPct > 0 && (
+    <span className="text-sm text-gray-500 line-through">
+      ₹{Math.round(product.price).toLocaleString('en-IN')}
+    </span>
+  )}
+</div>
 
                 {/* Seller */}
                 <p className="text-xs text-gray-600">by {product.seller?.storeName}</p>

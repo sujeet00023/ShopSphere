@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -339,7 +340,7 @@ export default function UserDashboardPage() {
                     <div className="w-full h-40 bg-gray-100 overflow-hidden">
                       {item.productImage ? (
                         <img
-                          src={item.productImage}
+                          src={product.thumbnail}
                           alt={item.productName}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                         />
@@ -351,7 +352,13 @@ export default function UserDashboardPage() {
                     </div>
                     <div className="p-4">
                       <p className="font-semibold text-gray-900 line-clamp-2">{item.productName}</p>
-                      <p className="text-primary font-bold mt-2">${item.price}</p>
+                      <p className="text-primary font-bold mt-2">
+  {new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+  }).format(item.price)}
+</p>
                       <button
                         onClick={(e) => {
                           e.preventDefault()
