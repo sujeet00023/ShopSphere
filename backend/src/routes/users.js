@@ -122,6 +122,318 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
 })
 
 
+// GET /user/profile - Get user profile
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      }
+    })
+ 
+    res.json({
+      status: 'success',
+      data: user
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to fetch profile' })
+  }
+})
+ 
+// PUT /user/profile - Update user profile
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { name, email, phone } = req.body
+ 
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        name: name || undefined,
+        email: email || undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: user
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to update profile' })
+  }
+})
+ 
+// GET /user/orders - Get all user orders
+router.get('/orders', authMiddleware, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1
+    const limit = parseInt(req.query.limit) || 10
+    const skip = (page - 1) * limit
+ 
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where: { customerId: req.user.id },
+        skip,
+        take: limit,
+        include: {
+          items: {
+            include: { product: { select: { name: true, price: true } } }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.order.count({ where: { customerId: req.user.id } })
+    ])
+ 
+    res.json({
+      status: 'success',
+      data: orders.map(order => ({
+        id: order.id,
+        createdAt: order.createdAt,
+        total: order.total,
+        status: order.status,
+        itemCount: order.items.length,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to fetch orders' })
+  }
+})
+ 
+// GET /user/wishlist - Get user wishlist
+router.post('/wishlist', authMiddleware, async (req, res) => {
+  try {
+    const { productId } = req.body
+
+    console.log('USER:', req.user)
+    console.log('PRODUCT:', productId)
+
+    const existing = await prisma.wishlistItem.findUnique({
+      where: {
+        userId_productId: {
+          userId: req.user.id,
+          productId
+        }
+      }
+    })
+
+    console.log('EXISTING:', existing)
+
+    const wishlistItem = await prisma.wishlistItem.create({
+      data: {
+        userId: req.user.id,
+        productId
+      }
+    })
+
+    res.status(201).json({ data: wishlistItem })
+
+  } catch (err) {
+    console.error('WISHLIST ERROR')
+    console.error(err)
+
+    res.status(500).json({
+      status: 'error',
+      message: err.message,
+      stack: err.stack
+    })
+  }
+})
+ 
+// POST /user/wishlist - Add to wishlist
+router.post('/wishlist', authMiddleware, async (req, res) => {
+  try {
+    const { productId } = req.body
+ 
+    if (!productId) {
+      return res.status(400).json({ status: 'error', message: 'Product ID required' })
+    }
+ 
+    const existing = await prisma.wishlistItem.findFirst({
+      where: {
+        customerId: req.user.id,
+        productId: productId
+      }
+    })
+ 
+    if (existing) {
+      return res.status(400).json({ status: 'error', message: 'Already in wishlist' })
+    }
+ 
+    const wishlistItem = await prisma.wishlistItem.create({
+      data: {
+        customerId: req.user.id,
+        productId: productId
+      },
+      include: { product: true }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Added to wishlist',
+      data: wishlistItem
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to add to wishlist' })
+  }
+})
+ 
+// DELETE /user/wishlist/:id - Remove from wishlist
+router.delete('/wishlist/:id', authMiddleware, async (req, res) => {
+  try {
+    await prisma.wishlistItem.delete({
+      where: { id: req.params.id }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Removed from wishlist'
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to remove from wishlist' })
+  }
+})
+ 
+// GET /user/addresses - Get user addresses
+router.get('/addresses', authMiddleware, async (req, res) => {
+  try {
+    const addresses = await prisma.address.findMany({
+      where: { customerId: req.user.id },
+      orderBy: { createdAt: 'desc' }
+    })
+ 
+    res.json({
+      status: 'success',
+      data: addresses
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to fetch addresses' })
+  }
+})
+ 
+// POST /user/addresses - Add new address
+router.post('/addresses', authMiddleware, async (req, res) => {
+  try {
+    const { label, address, city, state, zipCode, country, phone } = req.body
+ 
+    if (!address || !city || !zipCode || !country) {
+      return res.status(400).json({ status: 'error', message: 'Missing required fields' })
+    }
+ 
+    const newAddress = await prisma.address.create({
+      data: {
+        customerId: req.user.id,
+        label,
+        address,
+        city,
+        state,
+        zipCode,
+        country,
+        phone,
+      }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Address added successfully',
+      data: newAddress
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to add address' })
+  }
+})
+ 
+// PUT /user/addresses/:id - Update address
+router.put('/addresses/:id', authMiddleware, async (req, res) => {
+  try {
+    const { label, address, city, state, zipCode, country, phone } = req.body
+ 
+    const updatedAddress = await prisma.address.update({
+      where: { id: req.params.id },
+      data: {
+        label,
+        address,
+        city,
+        state,
+        zipCode,
+        country,
+        phone,
+      }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Address updated successfully',
+      data: updatedAddress
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to update address' })
+  }
+})
+ 
+// DELETE /user/addresses/:id - Delete address
+router.delete('/addresses/:id', authMiddleware, async (req, res) => {
+  try {
+    await prisma.address.delete({
+      where: { id: req.params.id }
+    })
+ 
+    res.json({
+      status: 'success',
+      message: 'Address deleted successfully'
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to delete address' })
+  }
+})
+ 
+// GET /user/stats - Get user statistics
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id
+ 
+    const [totalOrders, totalSpent, pending] = await Promise.all([
+      prisma.order.count({ where: { customerId: userId } }),
+      prisma.order.aggregate({
+        where: { customerId: userId },
+        _sum: { total: true }
+      }),
+      prisma.order.count({
+        where: {
+          customerId: userId,
+          status: { notIn: ['DELIVERED', 'CANCELLED'] }
+        }
+      })
+    ])
+ 
+    res.json({
+      status: 'success',
+      data: {
+        totalOrders,
+        totalSpent: totalSpent._sum.total || 0,
+        pendingOrders: pending,
+      }
+    })
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Failed to fetch stats' })
+  }
+})
+
 
 // ── GET /api/users/profile (get user profile) ────────────────────────────
 router.get('/profile', authMiddleware, async (req, res) => {
