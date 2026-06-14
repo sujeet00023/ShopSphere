@@ -1,9 +1,12 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
 import Link from 'next/link'
-import { useCartStore } from '../../../store/cartStore'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../../store/authStore'
 import { useRouter } from 'next/navigation'
+import apiClient from '../../../utils/api'
+import toast from 'react-hot-toast'
 
 const getName     = i => i.product?.name        ?? i.name        ?? '—'
 const getThumb    = i => i.product?.thumbnail   ?? i.thumbnail   ?? null
@@ -15,10 +18,93 @@ const fmtINR      = n => `₹${Number(n).toLocaleString('en-IN')}`
 export default function CartPage() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { items, removeFromCart, updateQuantity, clearCart, getTotals } = useCartStore()
-  const { subtotal, tax, total } = getTotals()
+  const [cartItems, setCartItems] = useState([])
+  const [cartSummary, setCartSummary] = useState({
+  subtotal: 0,
+  itemCount: 0
+})
 
-  if (items.length === 0) return (
+const subtotal = cartSummary.subtotal || 0
+const tax = subtotal * 0.1
+const total = subtotal + tax
+
+  const [loading, setLoading] = useState(true)
+  
+
+
+  const fetchCart = async () => {
+  try {
+    const { data } = await apiClient.get('/cart')
+
+    setCartItems(data.data)
+
+    setCartSummary({
+      subtotal: data.subtotal,
+      itemCount: data.itemCount
+    })
+  } catch (err) {
+    console.error(err)
+  } finally {
+    setLoading(false)
+  }
+}
+
+
+const removeCartItem = async (cartItemId) => {
+  try {
+    await apiClient.delete(`/cart/${cartItemId}`)
+
+    fetchCart()
+
+    window.dispatchEvent(new Event('cartUpdated'))
+
+    toast.success('Item removed')
+  } catch (err) {
+    toast.error('Failed to remove item')
+  }
+}
+
+
+const updateCartQuantity = async (cartItemId, quantity) => {
+  try {
+    await apiClient.put(`/cart/${cartItemId}`, {
+      quantity
+    })
+
+    fetchCart()
+
+    window.dispatchEvent(new Event('cartUpdated'))
+  } catch (err) {
+    toast.error('Failed to update quantity')
+  }
+}
+
+const clearEntireCart = async () => {
+  try {
+    await apiClient.delete('/cart')
+
+    fetchCart()
+
+    window.dispatchEvent(new Event('cartUpdated'))
+
+    toast.success('Cart cleared')
+  } catch (err) {
+    toast.error('Failed to clear cart')
+  }
+}
+
+useEffect(() => {
+  fetchCart()
+
+  const refreshCart = () => fetchCart()
+
+  window.addEventListener('cartUpdated', refreshCart)
+
+  return () =>
+    window.removeEventListener('cartUpdated', refreshCart)
+}, [])
+
+  if (cartItems.length === 0) return (
     <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
       <div style={{ maxWidth:640, margin:'0 auto', padding:'100px 24px', textAlign:'center' }}>
         <div style={{ fontSize:64, marginBottom:20 }}>🛒</div>
@@ -38,7 +124,7 @@ export default function CartPage() {
     </div>
   )
 
-  const itemCount = items.reduce((s, i) => s + i.quantity, 0)
+ const itemCount = cartSummary.itemCount
 
   return (
     <div style={{ minHeight:'100vh', background:'var(--paper)' }}>
@@ -78,7 +164,7 @@ export default function CartPage() {
               <span className="sec-label">Total</span>
             </div>
 
-            {items.map((item, idx) => {
+            {cartItems.map((item, idx) => {
               const name      = getName(item)
               const thumb     = getThumb(item)
               const price     = getPrice(item)
@@ -127,14 +213,14 @@ export default function CartPage() {
 
                     <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                       <div className="qty-wrap">
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))} aria-label="Decrease">−</button>
+                        <button className="qty-btn" onClick={() =>  updateCartQuantity(item.id, Math.max(1, item.quantity - 1))} aria-label="Decrease">−</button>
                         <span className="qty-num">{item.quantity}</span>
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, Math.min(stock, item.quantity + 1))} aria-label="Increase">+</button>
+                        <button className="qty-btn" onClick={() =>  updateCartQuantity(item.id, Math.min(stock, item.quantity + 1))} aria-label="Increase">+</button>
                       </div>
                       {stock <= 5 && (
                         <span style={{ fontSize:12, color:'var(--ember)', fontWeight:600 }}>Only {stock} left!</span>
                       )}
-                      <button className="remove-btn" onClick={() => removeFromCart(item.id)}>
+                      <button className="remove-btn" onClick={() => removeCartItem(item.id)}>
                         <span>✕</span> Remove
                       </button>
                     </div>
@@ -161,7 +247,7 @@ export default function CartPage() {
 
             {/* Per-item breakdown */}
             <div style={{ borderBottom:'1px solid rgba(255,255,255,0.1)', paddingBottom:16, marginBottom:16 }}>
-              {items.map(item => {
+              {cartItems.map(item => {
                 const name     = getName(item)
                 const price    = getPrice(item)
                 const disc     = getDiscount(item)
@@ -194,7 +280,7 @@ export default function CartPage() {
               {user ? 'Proceed to Checkout →' : 'Sign in to Checkout'}
             </button>
 
-            <button className="clear-btn" style={{ marginTop:12 }} onClick={clearCart}>
+            <button className="clear-btn" style={{ marginTop:12 }} onClick={clearEntireCart}>
               Clear Cart
             </button>
 

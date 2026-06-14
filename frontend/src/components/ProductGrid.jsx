@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { useCartStore } from '../store/cartStore'
 import apiClient from '../utils/api'
 import toast from 'react-hot-toast'
 
@@ -111,7 +110,6 @@ function ProductCard({ product, onAddToCart }) {
 }
 
 export default function ProductGrid({ products = [], loading }) {
-  const { addToCart } = useCartStore()
 
   /**
    * THE FIX:
@@ -120,18 +118,22 @@ export default function ProductGrid({ products = [], loading }) {
    * Both must happen together.
    */
   async function handleAddToCart(product) {
-    try {
-      await apiClient.post('/cart', {
-        productId: product.id,
-        quantity: 1,
-      })
-      // ✅ also update local store so cart page reflects immediately
-      addToCart(product, 1)
-      toast.success(`${product.name} added to cart`)
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add to cart')
-    }
+  try {
+    await apiClient.post('/cart', {
+      productId: product.id,
+      quantity: 1,
+    })
+
+    // notify navbar and cart page
+    window.dispatchEvent(new Event('cartUpdated'))
+
+    toast.success(`${product.name} added to cart`)
+  } catch (err) {
+    toast.error(
+      err.response?.data?.message || 'Failed to add to cart'
+    )
   }
+}
 
   if (loading) {
     return (

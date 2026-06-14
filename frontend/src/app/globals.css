@@ -999,3 +999,30 @@ img[loading="lazy"] {
     background: white;
   }
 }
+
+
+ @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @media (max-width: 768px) {
+          .nav-links   { display: none !important; }
+          .nav-signin  { display: none !important; }
+          .hamburger   { display: flex !important; }
+          .nav-username { display: none !important; }
+        }
+
+
+         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        * { box-sizing: border-box; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .product-list { display: flex; flex-direction: column; gap: 12px; }
+        @media (max-width: 900px) {
+          .products-layout { grid-template-columns: 1fr !important; }
+          .products-sidebar { display: none !important; }
+          .desktop-sort-bar { display: none !important; }
+          .mobile-sort-bar { display: flex !important; }
+          .mobile-only { display: flex !important; }
+          .product-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        }
+        @media (max-width: 480px) { .product-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
+      
+
+        @media(max-width:540px){.modal-grid{grid-template-columns:1fr !important;}}
