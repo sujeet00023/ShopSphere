@@ -62,6 +62,52 @@ export default function UserDashboardPage() {
     }
   }
 
+
+  const handleAddToCart = async (e, item) => {
+  e.preventDefault()
+
+  try {
+    await apiClient.post('/cart', {
+      productId: item.productId,
+      quantity: 1
+    })
+window.dispatchEvent(new Event('cartUpdated'))
+toast.success('Added to cart!')
+    toast.success('Added to cart!')
+  } catch (err) {
+    toast.error(
+      err.response?.data?.message || 'Failed to add to cart'
+    )
+  }
+}
+
+
+const handleRemoveWishlist = async (e, wishlistId) => {
+  e.preventDefault()
+
+  try {
+    await apiClient.delete(`/users/wishlist/${wishlistId}`)
+
+    setDashboard(prev => ({
+      ...prev,
+      wishlist: prev.wishlist.filter(
+        item => item.id !== wishlistId
+      ),
+      stats: {
+        ...prev.stats,
+        wishlistCount: Math.max(
+          0,
+          prev.stats.wishlistCount - 1
+        )
+      }
+    }))
+
+    toast.success('Removed from wishlist')
+  } catch (err) {
+    toast.error('Failed to remove item')
+  }
+}
+
   if (!hydrated) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -340,7 +386,7 @@ export default function UserDashboardPage() {
                     <div className="w-full h-40 bg-gray-100 overflow-hidden">
                       {item.productImage ? (
                         <img
-                          src={product.thumbnail}
+                          src={item.productImage}
                           alt={item.productName}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                         />
@@ -360,14 +406,19 @@ export default function UserDashboardPage() {
   }).format(item.price)}
 </p>
                       <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          toast.success('Added to cart!')
-                        }}
-                        className="w-full mt-4 bg-primary text-white py-2 rounded font-semibold hover:opacity-90 transition"
-                      >
-                        Add to Cart
-                      </button>
+  onClick={(e) => handleAddToCart(e, item)}
+  className="w-full mt-4 bg-primary text-white py-2 rounded font-semibold hover:opacity-90 transition"
+>
+  Add to Cart
+</button>
+
+
+<button
+  onClick={(e) => handleRemoveWishlist(e, item.id)}
+  className="w-full mt-2 border border-red-500 text-red-500 py-2 rounded font-semibold hover:bg-red-50 transition"
+>
+  Remove Wishlist
+</button>
                     </div>
                   </Link>
                 ))}

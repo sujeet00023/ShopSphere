@@ -71,7 +71,7 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
       productId: item.productId,
       productName: item.product.name,
       price: item.product.price,
-      productImage: item.product.image,
+      productImage: item.product.thumbnail,
     }))
  
     // Format addresses
@@ -255,43 +255,6 @@ router.post('/wishlist', authMiddleware, async (req, res) => {
   }
 })
  
-// POST /user/wishlist - Add to wishlist
-router.post('/wishlist', authMiddleware, async (req, res) => {
-  try {
-    const { productId } = req.body
- 
-    if (!productId) {
-      return res.status(400).json({ status: 'error', message: 'Product ID required' })
-    }
- 
-    const existing = await prisma.wishlistItem.findFirst({
-      where: {
-        customerId: req.user.id,
-        productId: productId
-      }
-    })
- 
-    if (existing) {
-      return res.status(400).json({ status: 'error', message: 'Already in wishlist' })
-    }
- 
-    const wishlistItem = await prisma.wishlistItem.create({
-      data: {
-        customerId: req.user.id,
-        productId: productId
-      },
-      include: { product: true }
-    })
- 
-    res.json({
-      status: 'success',
-      message: 'Added to wishlist',
-      data: wishlistItem
-    })
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Failed to add to wishlist' })
-  }
-})
  
 // DELETE /user/wishlist/:id - Remove from wishlist
 router.delete('/wishlist/:id', authMiddleware, async (req, res) => {
