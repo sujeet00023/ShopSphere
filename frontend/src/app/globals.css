@@ -1027,4 +1027,65 @@ img[loading="lazy"] {
 
         @media(max-width:540px){.modal-grid{grid-template-columns:1fr !important;}}
 
-        
+        /* ─────────────────────────────────────────────
+   AUTH PAGES (Login & Register)
+───────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&display=swap');
+
+/* Two-column split layout */
+.auth-root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Left decorative panel — flex column by default */
+.auth-panel {
+  display: flex;
+}
+
+/* Mobile logo — hidden on desktop, shown on mobile */
+.auth-mobile-logo {
+  display: none;
+}
+
+/* Step animation */
+@keyframes auth-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.auth-fade-in {
+  animation: auth-fadein 0.25s ease both;
+}
+
+/* Spinner used in submit buttons */
+.auth-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid #C4B5FD;
+  border-top-color: #7C3AED;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Autofill override — violet tint instead of browser yellow */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 100px #EDE9FE inset !important;
+  -webkit-text-fill-color: #0F0E1A !important;
+}
+
+/* Responsive: collapse to single column on mobile */
+@media (max-width: 768px) {
+  .auth-root {
+    grid-template-columns: 1fr !important;
+  }
+  .auth-panel {
+    display: none !important;
+  }
+  .auth-mobile-logo {
+    display: flex !important;
+  }
+}
