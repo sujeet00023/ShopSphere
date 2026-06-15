@@ -2,203 +2,286 @@
 
 import { useState } from "react"
 import Link from 'next/link'
-import {useRouter} from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import apiClient from "../../../../utils/api"
 import { useAuthStore } from "../../../../store/authStore"
 import toast from 'react-hot-toast'
 
+const T = {
+  bg: '#FFFFFF', surface: '#F7F7FB', border: '#E8E7F2', borderHov: '#C4B5FD',
+  ink: '#0F0E1A', muted: '#6B6880', faint: '#A09DB8',
+  violet: '#7C3AED', violetDark: '#5B21B6', violetSoft: '#EDE9FE', violetMid: '#C4B5FD',
+  amber: '#D97706', amberSoft: '#FEF3C7', amberMid: '#FDE68A',
+  emerald: '#059669', emeraldSoft: '#D1FAE5',
+}
+
+const ROLES = [
+  { value: 'CUSTOMER', icon: '👤', label: 'Customer',  desc: 'Browse & buy products'   },
+  { value: 'SELLER',   icon: '🏪', label: 'Seller',    desc: 'List & sell products'     },
+  { value: 'ADMIN',    icon: '⚙️', label: 'Admin',     desc: 'Manage the platform'      },
+]
+
 export default function RegisterPage() {
   const router = useRouter()
   const { login } = useAuthStore()
-  const [loading, setLoading] = useState(false)
-  const [showAdminCode, setShowAdminCode] = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  const [step,     setStep]     = useState(1) // 1 = role pick, 2 = details
+  const [focused,  setFocused]  = useState('')
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'CUSTOMER',
-    adminCode: '', // For admin registration
+    name: '', email: '', password: '', role: '', adminCode: '',
   })
+
+  function set(key, val) { setFormData(p => ({ ...p, [key]: val })) }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
-
     try {
-      // Validate admin code if registering as admin
       if (formData.role === 'ADMIN') {
-        if (!formData.adminCode) {
-          toast.error('Admin code is required')
-          setLoading(false)
-          return
-        }
-        if (formData.adminCode !== process.env.NEXT_PUBLIC_ADMIN_CODE && formData.adminCode !== 'admin123') {
-          toast.error('Invalid admin code')
-          setLoading(false)
-          return
+        const code = formData.adminCode
+        if (!code) { toast.error('Admin code is required'); setLoading(false); return }
+        if (code !== process.env.NEXT_PUBLIC_ADMIN_CODE && code !== 'admin123') {
+          toast.error('Invalid admin code'); setLoading(false); return
         }
       }
-
       const { data } = await apiClient.post('/auth/register', {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
+        name: formData.name, email: formData.email,
+        password: formData.password, role: formData.role,
       })
-
       localStorage.setItem('token', data.token)
       login(data.user)
-
-      toast.success(`${formData.role.charAt(0) + formData.role.slice(1).toLowerCase()} account created successfully!`)
-      
-      // Redirect based on role
-      if (formData.role === 'SELLER') {
-        router.push('/pages/seller/dashboard')
-      } else if (formData.role === 'ADMIN') {
-        router.push('/pages/admin/dashboard')
-      } else {
-        router.push('/')
-      }
+      toast.success('Account created! Welcome to ShopSphere 🎉')
+      if (formData.role === 'SELLER')      router.push('/pages/seller/dashboard')
+      else if (formData.role === 'ADMIN')  router.push('/pages/admin/dashboard')
+      else                                 router.push('/')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
+  const iField = (name) => ({
+    onFocus: () => setFocused(name),
+    onBlur:  () => setFocused(''),
+    style: inputStyle(focused === name),
+  })
+
+  const selectedRole = ROLES.find(r => r.value === formData.role)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-accent to-primary flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 space-y-6">
-        
-        {/* Header */}
-        <div className="text-center">
-          <h2 className="text-4xl font-bold text-gray-900">Create Account</h2>
-          <p className="text-gray-600 mt-2">Join ShopSphere and start shopping</p>
+    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr', fontFamily: "'Inter', sans-serif" }} className="auth-root">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
+        * { box-sizing: border-box; }
+        .auth-panel { display: flex !important; }
+        @media (max-width: 768px) {
+          .auth-root  { grid-template-columns: 1fr !important; }
+          .auth-panel { display: none !important; }
+        }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px ${T.violetSoft} inset !important; -webkit-text-fill-color: ${T.ink} !important; }
+        @keyframes spin  { to { transform: rotate(360deg) } }
+        @keyframes fadein { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+        .fade-in { animation: fadein 0.25s ease both; }
+      `}</style>
+
+      {/* ── LEFT DECORATIVE PANEL ── */}
+      <div className="auth-panel" style={{ background: `linear-gradient(145deg, ${T.violet} 0%, ${T.violetDark} 55%, #3B0764 100%)`, position: 'relative', overflow: 'hidden', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
+        <div style={{ position: 'absolute', top: -80,  left: -80,  width: 320, height: 320, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', bottom:-60, right:-60,  width: 260, height: 260, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'absolute', top:'40%', right:-40,  width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 380 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 52 }}>
+            <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.25)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, backdropFilter: 'blur(8px)' }}>🛍️</div>
+            <span style={{ fontWeight: 800, fontSize: 20, color: '#fff', letterSpacing: '-0.03em' }}>ShopSphere</span>
+          </div>
+
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 42, fontWeight: 900, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 18 }}>
+            Join the<br /><em style={{ fontStyle: 'italic', color: T.violetMid }}>community.</em>
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.75, marginBottom: 48 }}>
+            Over 100,000 customers and 500 sellers trust ShopSphere for a better shopping experience.
+          </p>
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {[
+              { val: '10K+',  label: 'Products'       },
+              { val: '500+',  label: 'Sellers'        },
+              { val: '100K+', label: 'Customers'      },
+              { val: '4.9★',  label: 'Avg. Rating'    },
+            ].map(({ val, label }) => (
+              <div key={label} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '16px 12px', textAlign: 'center' }}>
+                <div style={{ fontWeight: 900, fontSize: 22, color: '#fff', letterSpacing: '-0.02em' }}>{val}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 4, fontWeight: 500 }}>{label}</div>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          
-          {/* Full Name */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="John Doe"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-              required
-            />
+      {/* ── RIGHT FORM PANEL ── */}
+      <div style={{ background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(32px,5vw,56px) clamp(24px,4vw,48px)', overflowY: 'auto' }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
+
+          {/* Mobile logo */}
+          <div style={{ display: 'none', alignItems: 'center', gap: 8, marginBottom: 32 }} className="mobile-logo">
+            <div style={{ width: 36, height: 36, background: `linear-gradient(135deg, ${T.violet}, ${T.violetDark})`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🛍️</div>
+            <span style={{ fontWeight: 800, fontSize: 18, color: T.ink, letterSpacing: '-0.03em' }}>Shop<span style={{ color: T.violet }}>Sphere</span></span>
           </div>
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Email Address *
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="you@example.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-              required
-            />
+          {/* Progress indicator */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 32 }}>
+            {[1, 2].map(s => (
+              <div key={s} style={{ flex: 1, height: 3, borderRadius: 999, background: step >= s ? T.violet : T.border, transition: 'background 0.3s' }} />
+            ))}
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Password *
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-              required
-            />
-          </div>
-
-          {/* Account Type */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">
-              Account Type *
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) => {
-                setFormData({ ...formData, role: e.target.value })
-                setShowAdminCode(e.target.value === 'ADMIN')
-              }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-            >
-              <option value="CUSTOMER">👤 Customer - Shop Products</option>
-              <option value="SELLER">🏪 Seller - Sell Products</option>
-              <option value="ADMIN">⚙️ Admin - Manage Platform</option>
-            </select>
-            <p className="text-xs text-gray-600 mt-2">
-              {formData.role === 'CUSTOMER' && 'Browse and purchase products from sellers'}
-              {formData.role === 'SELLER' && 'Create and manage your store'}
-              {formData.role === 'ADMIN' && 'Manage users, categories, and orders'}
+          {/* Header */}
+          <div style={{ marginBottom: 28 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: T.ink, letterSpacing: '-0.03em', margin: '0 0 7px' }}>
+              {step === 1 ? 'Choose your role' : 'Create your account'}
+            </h1>
+            <p style={{ fontSize: 14, color: T.muted, margin: 0 }}>
+              {step === 1
+                ? 'Pick how you want to use ShopSphere'
+                : <>Already have an account? <Link href="/pages/auth/login" style={{ color: T.violet, fontWeight: 700, textDecoration: 'none' }}>Sign in →</Link></>}
             </p>
           </div>
 
-          {/* Admin Code (Only for Admin) */}
-          {showAdminCode && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-              <p className="text-sm text-yellow-800 mb-3">
-                Admin registration requires a special code. Contact the platform owner for access.
+          {/* ── STEP 1: Role Selection ── */}
+          {step === 1 && (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ROLES.map(({ value, icon, label, desc }) => {
+                const active = formData.role === value
+                return (
+                  <button key={value} type="button" onClick={() => set('role', value)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', border: `2px solid ${active ? T.violet : T.border}`, borderRadius: 14, background: active ? T.violetSoft : T.surface, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.18s', boxShadow: active ? `0 0 0 3px rgba(124,58,237,0.1)` : 'none' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: active ? T.violet : T.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0, transition: 'all 0.18s' }}>{icon}</div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: active ? T.violet : T.ink }}>{label}</div>
+                      <div style={{ fontSize: 13, color: T.muted, marginTop: 2 }}>{desc}</div>
+                    </div>
+                    {active && <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: 999, background: T.violet, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ color: '#fff', fontSize: 11, fontWeight: 800 }}>✓</span>
+                    </div>}
+                  </button>
+                )
+              })}
+
+              <button type="button" onClick={() => { if (!formData.role) { toast.error('Please select a role'); return }; setStep(2) }}
+                style={{ marginTop: 8, padding: '14px', background: formData.role ? `linear-gradient(135deg, ${T.violet}, ${T.violetDark})` : T.surface, border: `1.5px solid ${formData.role ? 'transparent' : T.border}`, borderRadius: 12, color: formData.role ? '#fff' : T.faint, fontWeight: 800, fontSize: 15, cursor: formData.role ? 'pointer' : 'not-allowed', fontFamily: 'inherit', transition: 'all 0.18s', boxShadow: formData.role ? '0 4px 16px rgba(124,58,237,0.28)' : 'none' }}>
+                Continue as {selectedRole?.label || '...'} →
+              </button>
+
+              <p style={{ fontSize: 12, color: T.faint, textAlign: 'center', marginTop: 8 }}>
+                Already have an account? <Link href="/pages/auth/login" style={{ color: T.violet, fontWeight: 700, textDecoration: 'none' }}>Sign in</Link>
               </p>
-              <input
-                type="password"
-                value={formData.adminCode}
-                onChange={(e) => setFormData({ ...formData, adminCode: e.target.value })}
-                placeholder="Enter admin code"
-                className="w-full px-4 py-3 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition"
-              />
             </div>
           )}
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-primary to-accent text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </button>
-        </form>
+          {/* ── STEP 2: Details Form ── */}
+          {step === 2 && (
+            <form className="fade-in" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or</span>
-          </div>
+              {/* Role badge (changeable) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: T.violetSoft, border: `1.5px solid ${T.violetMid}`, borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>{selectedRole?.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: T.violet }}>{selectedRole?.label} Account</span>
+                </div>
+                <button type="button" onClick={() => setStep(1)} style={{ fontSize: 12, color: T.violet, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', textDecoration: 'underline' }}>Change</button>
+              </div>
+
+              <Field label="Full Name">
+                <input type="text" placeholder="John Doe" value={formData.name}
+                  onChange={e => set('name', e.target.value)} required {...iField('name')} />
+              </Field>
+
+              <Field label="Email Address">
+                <input type="email" placeholder="you@example.com" value={formData.email}
+                  onChange={e => set('email', e.target.value)} required {...iField('email')} />
+              </Field>
+
+              <Field label="Password">
+                <div style={{ position: 'relative' }}>
+                  <input type={showPass ? 'text' : 'password'} placeholder="Min. 8 characters" value={formData.password}
+                    onChange={e => set('password', e.target.value)} required minLength={8} {...iField('password')}
+                    style={{ ...inputStyle(focused === 'password'), paddingRight: 44 }} />
+                  <button type="button" onClick={() => setShowPass(v => !v)}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontSize: 15, display: 'flex', alignItems: 'center', padding: 0 }}>
+                    {showPass ? '🙈' : '👁️'}
+                  </button>
+                </div>
+                {/* Password strength dots */}
+                {formData.password && (
+                  <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                    {[1, 2, 3, 4].map(i => {
+                      const len = formData.password.length
+                      const lit = (i === 1 && len >= 1) || (i === 2 && len >= 6) || (i === 3 && len >= 10) || (i === 4 && len >= 14 && /[^a-zA-Z0-9]/.test(formData.password))
+                      const colors = ['#DC2626', '#D97706', '#059669', '#7C3AED']
+                      return <div key={i} style={{ flex: 1, height: 3, borderRadius: 999, background: lit ? colors[i-1] : T.border, transition: 'background 0.2s' }} />
+                    })}
+                    <span style={{ fontSize: 11, color: T.faint, marginLeft: 6, whiteSpace: 'nowrap' }}>
+                      {formData.password.length < 6 ? 'Too short' : formData.password.length < 10 ? 'Fair' : formData.password.length < 14 ? 'Good' : 'Strong'}
+                    </span>
+                  </div>
+                )}
+              </Field>
+
+              {/* Admin Code */}
+              {formData.role === 'ADMIN' && (
+                <div className="fade-in" style={{ background: T.amberSoft, border: `1.5px solid ${T.amberMid}`, borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontSize: 15 }}>⚠️</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.amber }}>Admin Code Required</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#92400E', lineHeight: 1.6, margin: '0 0 10px' }}>Contact the platform owner to obtain an admin access code.</p>
+                  <input type="password" placeholder="Enter admin code" value={formData.adminCode}
+                    onChange={e => set('adminCode', e.target.value)}
+                    style={{ ...inputStyle(focused === 'adminCode'), borderColor: T.amberMid, background: '#FFFBEB' }}
+                    onFocus={() => setFocused('adminCode')} onBlur={() => setFocused('')} />
+                </div>
+              )}
+
+              <button type="submit" disabled={loading}
+                style={{ marginTop: 4, padding: '14px', background: loading ? T.surface : `linear-gradient(135deg, ${T.violet}, ${T.violetDark})`, border: `1.5px solid ${loading ? T.border : 'transparent'}`, borderRadius: 12, color: loading ? T.faint : '#fff', fontWeight: 800, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 0.18s', boxShadow: loading ? 'none' : '0 4px 16px rgba(124,58,237,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {loading ? <><Spinner /> Creating account…</> : 'Create Account →'}
+              </button>
+
+              <p style={{ fontSize: 12, color: T.faint, textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
+                By registering, you agree to our <a href="#" style={{ color: T.muted, textDecoration: 'underline' }}>Terms</a> &amp; <a href="#" style={{ color: T.muted, textDecoration: 'underline' }}>Privacy Policy</a>
+              </p>
+            </form>
+          )}
         </div>
-
-        {/* Login Link */}
-        <div className="text-center">
-          <p className="text-gray-600">
-            Already have an account?{' '}
-            <Link href="/pages/auth/login" className="text-primary font-bold hover:underline">
-              Sign in here
-            </Link>
-          </p>
-        </div>
-
-        {/* Terms */}
-        <p className="text-xs text-gray-500 text-center">
-          By registering, you agree to our Terms of Service and Privacy Policy
-        </p>
       </div>
+      <style>{`.mobile-logo { display: none !important; } @media(max-width:768px){ .mobile-logo { display: flex !important; } }`}</style>
     </div>
   )
+}
+
+function inputStyle(focused) {
+  return {
+    width: '100%', padding: '12px 14px', background: focused ? '#EDE9FE' : '#F7F7FB',
+    border: `1.5px solid ${focused ? '#7C3AED' : '#E8E7F2'}`,
+    borderRadius: 10, fontSize: 14, color: '#0F0E1A', fontFamily: 'inherit', outline: 'none',
+    transition: 'all 0.18s', boxShadow: focused ? '0 0 0 3px rgba(124,58,237,0.1)' : 'none',
+  }
+}
+
+function Field({ label, children, extra }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={{ fontSize: 13, fontWeight: 700, color: '#0F0E1A' }}>{label}</label>
+        {extra}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Spinner() {
+  return <span style={{ width: 15, height: 15, border: '2px solid #C4B5FD', borderTopColor: '#7C3AED', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
 }
