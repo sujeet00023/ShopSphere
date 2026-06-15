@@ -74,7 +74,7 @@ export default function Home() {
             </p>
             <div className="fade-up d3" style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
               <Link href="/pages/products" className="btn btn-ink" style={{ fontSize:15 }}>Explore Products →</Link>
-              <Link href="/pages/seller/search"  className="btn btn-outline" style={{ fontSize:15 }}>Advanced Search</Link>
+             {/*  <Link href="/pages/seller/search"  className="btn btn-outline" style={{ fontSize:15 }}>Advanced Search</Link> */}
             </div>
             <div className="fade-up d4"
               style={{ display:'flex', gap:40, marginTop:56, paddingTop:40, borderTop:'1px solid var(--stone)' }}>
