@@ -32,6 +32,12 @@ router.post('/register', async (req, res) => {
       data: { email, password: hashedPassword, name, role },
     })
 
+    console.log('USER CREATED:', {
+  email: user.email,
+  role: user.role,
+  passwordHash: user.password.slice(0, 20)
+})
+
     // Create seller profile if registering as seller
     if (role === 'SELLER') {
       await prisma.sellerProfile.create({
