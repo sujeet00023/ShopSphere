@@ -514,7 +514,7 @@ router.delete('/addresses/:id', authMiddleware, async (req, res) => {
 })
 
 // ── GET /api/users/wishlist (get wishlist) ───────────────────────────────
-router.get('/wishlist', authMiddleware, async (req, res) => {
+ /*router.get('/wishlist', authMiddleware, async (req, res) => {
   try {
     const wishlist = await prisma.wishlistItem.findMany({
       where: { userId: req.user.id },
@@ -527,6 +527,7 @@ router.get('/wishlist', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch wishlist.' })
   }
 })
+*/
 
 // ── POST /api/users/wishlist (add to wishlist) ──────────────────────────
 router.post('/wishlist', authMiddleware, async (req, res) => {
