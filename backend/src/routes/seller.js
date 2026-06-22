@@ -59,6 +59,13 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
       getSellerMonthlyRevenue(seller.id),
     ])
 
+    const completedOrders = await prisma.order.count({
+  where: {
+    sellerId: seller.id,
+    paymentStatus: 'COMPLETED'
+  }
+})
+
     const dashboard = {
       store: {
         name: seller.storeName,
@@ -69,9 +76,10 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
       stats: {
         totalOrders,
         totalRevenue: totalRevenue._sum.total || 0,
-        averageOrderValue: totalOrders > 0
-          ? ((totalRevenue._sum.total || 0) / totalOrders).toFixed(2)
-          : 0,
+        averageOrderValue:
+  completedOrders > 0
+    ? ((totalRevenue._sum.total || 0) / completedOrders).toFixed(2)
+    : 0,
       },
       recentOrders,
       topProducts,
@@ -256,7 +264,7 @@ async function getSellerMonthlyRevenue(sellerId) {
             month: 'short',
             year: '2-digit'
         })
-        months[key] = (months[key] || 0 + order.total )
+        months[key] = (months[key] || 0) + order.total
     })
 
     return Object.entries(months)
