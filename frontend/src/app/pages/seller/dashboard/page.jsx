@@ -157,9 +157,9 @@ export default function SellerDashboard() {
 ───────────────────────────────────────── */
 function OverviewSection({ dashboard }) {
   const kpis = [
-    { label: 'Total Revenue',      value: `$${dashboard.stats.totalRevenue.toFixed(2)}`,   badge: '+12.4%', up: true,  bg: 'bg-[#F3F2FF]', text: 'text-[#6C63FF]' },
+    { label: 'Total Revenue',      value: `₹${Number(dashboard.stats.averageOrderValue).toLocaleString('en-IN')}`,   badge: '+12.4%', up: true,  bg: 'bg-[#F3F2FF]', text: 'text-[#6C63FF]' },
     { label: 'Total Orders',       value: dashboard.stats.totalOrders,                      badge: '+8.1%',  up: true,  bg: 'bg-[#EDFBF0]', text: 'text-[#16A34A]' },
-    { label: 'Avg. Order Value',   value: `$${dashboard.stats.averageOrderValue}`,          badge: '-2.3%',  up: false, bg: 'bg-[#FEF9EC]', text: 'text-[#D97706]' },
+    { label: 'Avg. Order Value',   value: `₹${Number(dashboard.stats.averageOrderValue).toLocaleString('en-IN')}`,          badge: '-2.3%',  up: false, bg: 'bg-[#FEF9EC]', text: 'text-[#D97706]' },
     { label: 'Store Rating',       value: `⭐ ${dashboard.store.rating.toFixed(1)}`,       badge: '+0.2',   up: true,  bg: 'bg-[#EFF6FF]', text: 'text-[#2563EB]' },
   ]
 
@@ -212,7 +212,9 @@ function OverviewSection({ dashboard }) {
                   <p className="text-[13px] font-medium text-gray-900 truncate">{p.name}</p>
                   <p className="text-[11px] text-gray-400">Stock: {p.stock} · Sold: {p.sold}</p>
                 </div>
-                <span className="text-[13px] font-bold text-[#6C63FF] font-mono">${p.price}</span>
+                <span className="text-[13px] font-bold text-[#6C63FF] font-mono">
+  ₹{p.price.toLocaleString('en-IN')}
+</span>
               </div>
             ))}
           </div>
@@ -314,7 +316,7 @@ function OrdersSection() {
                   </td>
                   <td className="px-5 py-3.5 text-[13px] text-gray-600">{order.items.length}</td>
                   <td className="px-5 py-3.5 text-[13px] font-semibold text-gray-900 font-mono">
-                    ${order.total.toFixed(2)}
+                   ₹{order.total.toLocaleString('en-IN')}
                   </td>
                   <td className="px-5 py-3.5">
                     <OrderStatusPill status={order.status} />
@@ -412,18 +414,22 @@ function InventorySection() {
       {/* KPI row */}
       {inventory && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          {[
+  {[
             { label: 'Total Products', value: inventory.total,              color: 'text-gray-900' },
             { label: 'In Stock',       value: inventory.inStock.length,     color: 'text-green-600' },
             { label: 'Low Stock',      value: inventory.lowStock.length,    color: 'text-amber-600' },
             { label: 'Out of Stock',   value: inventory.outOfStock.length,  color: 'text-red-500' },
-          ].map(k => (
-            <div key={k.label} className="bg-white rounded-xl border border-gray-100 p-5">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{k.label}</p>
-              <p className={`text-3xl font-bold tracking-tight ${k.color}`}>{k.value}</p>
-            </div>
-          ))}
-        </div>
+  ].map(k => (
+    <div key={k.label} className="bg-white rounded-xl border border-gray-100 p-5">
+      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+        {k.label}
+      </p>
+      <p className="text-2xl font-bold text-gray-900 tracking-tight">
+        {k.value}
+      </p>
+    </div>
+  ))}
+</div>
       )}
 
       {/* Alert strip */}
@@ -575,7 +581,9 @@ function InventoryTable({ products, editingId, newStock, onEdit, onStockChange, 
           {products.map(product => (
             <tr key={product.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-5 py-3.5 text-[13px] font-medium text-gray-900">{product.name}</td>
-              <td className="px-5 py-3.5 text-[12px] font-mono text-gray-700">${product.price.toFixed(2)}</td>
+             <td className="px-5 py-3.5 text-[12px] font-mono text-gray-700">
+  ₹{product.price.toLocaleString('en-IN')}
+</td>
               <td className="px-5 py-3.5">
                 {editingId === product.id ? (
                   <input
