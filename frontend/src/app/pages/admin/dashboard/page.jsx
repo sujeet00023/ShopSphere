@@ -9,6 +9,7 @@ import Link from 'next/link'
 /* ── helpers ── */
 const fmtINR = n => `₹${Number(n || 0).toLocaleString('en-IN')}`
 const fmtNum = n => Number(n || 0).toLocaleString('en-IN')
+const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
 
 /* ── Status / Role maps ── */
 const STATUS_MAP = {
@@ -42,6 +43,16 @@ function RoleBadge({ role }) {
   return (
     <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, background:r.bg, color:r.color, textTransform:'uppercase', letterSpacing:'0.04em' }}>
       {role}
+    </span>
+  )
+}
+
+/* ── ActiveBadge ── */
+function ActiveBadge({ active }) {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, background: active === false ? '#fde8e8' : '#edf7ed', color: active === false ? '#c02020' : '#2d7a2d', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background: active === false ? '#c02020' : '#2d7a2d', flexShrink:0 }} />
+      {active === false ? 'Inactive' : 'Active'}
     </span>
   )
 }
@@ -172,7 +183,7 @@ function TableWrap({ children }) {
   )
 }
 const TH = ({ children, hide }) => (
-  <th style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.08em', padding:'0 14px 12px 0', textAlign:'left', borderBottom:'1.5px solid var(--stone)', whiteSpace:'nowrap', display: hide ? undefined : undefined }}
+  <th style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.08em', padding:'0 14px 12px 0', textAlign:'left', borderBottom:'1.5px solid var(--stone)', whiteSpace:'nowrap' }}
     className={hide ? 'adm-hide-mobile' : ''}>
     {children}
   </th>
@@ -183,6 +194,146 @@ const TD = ({ children, hide, mono, bold }) => (
     {children}
   </td>
 )
+const EmptyRow = ({ colSpan, label }) => (
+  <tr>
+    <td colSpan={colSpan} style={{ padding:'32px 0', textAlign:'center', color:'var(--fog)', fontSize:13 }}>
+      {label}
+    </td>
+  </tr>
+)
+
+/* ── Modal ── */
+function Modal({ title, onClose, children, width = 560 }) {
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(10,10,10,0.45)', display:'flex', alignItems:'center', justifyContent:'center', padding:20, zIndex:1000 }}
+      onClick={onClose}>
+      <div style={{ background:'var(--paper)', borderRadius:16, padding:'28px', width:'100%', maxWidth:width, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 64px rgba(0,0,0,0.28)' }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <h3 className="serif" style={{ fontSize:20, fontWeight:900, letterSpacing:'-0.02em' }}>{title}</h3>
+          <button onClick={onClose}
+            style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--fog)', lineHeight:1, padding:4 }}>
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/* ── ConfirmDialog ── */
+function ConfirmDialog({ title, message, confirmLabel='Confirm', danger, loading, onConfirm, onCancel }) {
+  return (
+    <Modal title={title} onClose={onCancel} width={420}>
+      <p style={{ fontSize:14, color:'var(--fog)', lineHeight:1.6, marginBottom:24 }}>{message}</p>
+      <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+        <button onClick={onCancel} disabled={loading}
+          style={{ padding:'10px 18px', border:'1.5px solid var(--stone)', borderRadius:8, background:'var(--paper)', color:'var(--ink)', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+          Cancel
+        </button>
+        <button onClick={onConfirm} disabled={loading}
+          style={{ padding:'10px 18px', border:'none', borderRadius:8, background: danger ? '#c02020' : 'var(--ink)', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', opacity: loading ? 0.6 : 1 }}>
+          {loading ? 'Working…' : confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+/* ── SellerDetailModal ── */
+function SellerDetailModal({ sellerId, onClose }) {
+  const [seller, setSeller] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    apiClient.get(`/admin/sellers/${sellerId}`)
+      .then(({ data }) => setSeller(data.data))
+      .catch(() => toast.error('Failed to load seller details'))
+      .finally(() => setLoading(false))
+  }, [sellerId])
+
+  return (
+    <Modal title="Seller Details" onClose={onClose} width={640}>
+      {loading ? <Spinner label="Loading seller…" /> : !seller ? (
+        <p style={{ color:'var(--fog)', fontSize:14 }}>Couldn&lsquo;t load this seller.</p>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:22 }}>
+
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:48, height:48, borderRadius:'50%', background:'var(--ink)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#fff', flexShrink:0 }}>
+              {seller.storeName?.slice(0,2).toUpperCase() || 'SE'}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div className="serif" style={{ fontSize:18, fontWeight:900, letterSpacing:'-0.02em' }}>{seller.storeName}</div>
+              <div style={{ fontSize:13, color:'var(--fog)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {seller.user?.name} · {seller.user?.email}
+              </div>
+            </div>
+            <ActiveBadge active={seller.user?.isActive} />
+          </div>
+
+          {/* Stats */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+            <div style={{ background:'var(--mist)', borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>Revenue</div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#2d7a2d' }}>{fmtINR(seller.totalEarnings)}</div>
+            </div>
+            <div style={{ background:'var(--mist)', borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>Products</div>
+              <div style={{ fontSize:15, fontWeight:700, color:'var(--ink)' }}>{seller._count?.products || 0}</div>
+            </div>
+            <div style={{ background:'var(--mist)', borderRadius:10, padding:'12px 14px' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--fog)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>Rating</div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#c07a00' }}>{Number(seller.rating||0).toFixed(1)}★</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize:12, color:'var(--fog)' }}>
+            Store joined {fmtDate(seller.user?.createdAt)} · {seller._count?.orders || 0} total orders
+          </div>
+
+          {/* Products */}
+          <div>
+            <div className="sec-label" style={{ marginBottom:10 }}>Products ({seller.products?.length || 0})</div>
+            {seller.products?.length ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:0, maxHeight:180, overflowY:'auto', border:'1px solid var(--mist)', borderRadius:10 }}>
+                {seller.products.map(p => (
+                  <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:13, padding:'10px 12px', borderBottom:'1px solid var(--mist)' }}>
+                    <span style={{ color:'var(--ink)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, marginRight:10 }}>{p.name}</span>
+                    <span style={{ color:'var(--fog)', fontFamily:'DM Mono, monospace', fontSize:12, flexShrink:0 }}>{fmtINR(p.price)} · {p.sold} sold</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize:13, color:'var(--fog)' }}>No products listed yet.</p>
+            )}
+          </div>
+
+          {/* Recent orders */}
+          <div>
+            <div className="sec-label" style={{ marginBottom:10 }}>Recent Orders</div>
+            {seller.orders?.length ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:0, border:'1px solid var(--mist)', borderRadius:10 }}>
+                {seller.orders.map(o => (
+                  <div key={o.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:13, padding:'10px 12px', borderBottom:'1px solid var(--mist)', gap:10 }}>
+                    <span style={{ color:'var(--sky)', fontFamily:'DM Mono, monospace', fontWeight:600, flexShrink:0 }}>{o.orderNumber}</span>
+                    <span style={{ color:'var(--ink)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.customer?.name}</span>
+                    <span style={{ color:'var(--fog)', fontFamily:'DM Mono, monospace', fontSize:12, flexShrink:0 }}>{fmtINR(o.total)}</span>
+                    <StatusBadge status={o.status} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize:13, color:'var(--fog)' }}>No orders yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
 
 /* ══════════════════════════════════════════════════════
    OVERVIEW TAB
@@ -271,6 +422,7 @@ function OrdersTab({ orders }) {
           </tr>
         </thead>
         <tbody>
+          {(orders||[]).length === 0 && <EmptyRow colSpan={6} label="No orders yet." />}
           {(orders||[]).map(order => (
             <tr key={order.id} style={{ transition:'background 0.12s' }}
               onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
@@ -280,7 +432,7 @@ function OrdersTab({ orders }) {
               <TD hide mono>{fmtINR(order.total)}</TD>
               <TD hide>{order.items?.length || 0} items</TD>
               <TD><StatusBadge status={order.status} /></TD>
-              <TD hide>{new Date(order.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</TD>
+              <TD hide>{fmtDate(order.createdAt)}</TD>
             </tr>
           ))}
         </tbody>
@@ -296,6 +448,7 @@ function SellersTab() {
   const [sellers, setSellers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search,  setSearch]  = useState('')
+  const [viewingSellerId, setViewingSellerId] = useState(null)
 
   useEffect(() => {
     apiClient.get('/admin/sellers')
@@ -310,41 +463,59 @@ function SellersTab() {
   )
 
   return (
-    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
-        <div className="sec-label">All Sellers ({sellers.length})</div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search sellers…"
-          style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:220, transition:'border-color 0.2s' }}
-          onFocus={e => e.target.style.borderColor='var(--ink)'}
-          onBlur={e => e.target.style.borderColor='var(--stone)'} />
-      </div>
-      {loading ? <Spinner label="Loading sellers…" /> : (
-        <TableWrap>
-          <thead>
-            <tr>
-              <TH>Store</TH>
-              <TH>Owner</TH>
-              <TH hide>Products</TH>
-              <TH>Revenue</TH>
-              <TH>Rating</TH>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(seller => (
-              <tr key={seller.id}
-                onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
-                onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
-                <TD bold>{seller.storeName}</TD>
-                <TD>{seller.user?.name}</TD>
-                <TD hide mono>{seller._count?.products || 0}</TD>
-                <TD mono><span style={{ color:'#2d7a2d', fontWeight:700 }}>{fmtINR(seller.totalEarnings)}</span></TD>
-                <TD mono><span style={{ color:'#c07a00' }}>{Number(seller.rating||0).toFixed(1)}★</span></TD>
+    <>
+      <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+          <div className="sec-label">All Sellers ({sellers.length})</div>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search sellers…"
+            style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:220, transition:'border-color 0.2s' }}
+            onFocus={e => e.target.style.borderColor='var(--ink)'}
+            onBlur={e => e.target.style.borderColor='var(--stone)'} />
+        </div>
+        {loading ? <Spinner label="Loading sellers…" /> : (
+          <TableWrap>
+            <thead>
+              <tr>
+                <TH>Store</TH>
+                <TH>Owner</TH>
+                <TH hide>Products</TH>
+                <TH>Revenue</TH>
+                <TH hide>Rating</TH>
+                <TH>Status</TH>
+                <TH>Actions</TH>
               </tr>
-            ))}
-          </tbody>
-        </TableWrap>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && <EmptyRow colSpan={7} label="No sellers found." />}
+              {filtered.map(seller => (
+                <tr key={seller.id}
+                  onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+                  onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+                  <TD bold>{seller.storeName}</TD>
+                  <TD>{seller.user?.name}</TD>
+                  <TD hide mono>{seller._count?.products || 0}</TD>
+                  <TD mono><span style={{ color:'#2d7a2d', fontWeight:700 }}>{fmtINR(seller.totalEarnings)}</span></TD>
+                  <TD hide mono><span style={{ color:'#c07a00' }}>{Number(seller.rating||0).toFixed(1)}★</span></TD>
+                  <TD><ActiveBadge active={seller.user?.isActive} /></TD>
+                  <TD>
+                    <button onClick={() => setViewingSellerId(seller.id)}
+                      style={{ padding:'7px 14px', border:'1.5px solid var(--stone)', borderRadius:8, background:'var(--paper)', color:'var(--ink)', fontWeight:600, fontSize:12, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}
+                      onMouseEnter={e => e.currentTarget.style.borderColor='var(--ink)'}
+                      onMouseLeave={e => e.currentTarget.style.borderColor='var(--stone)'}>
+                      View Details
+                    </button>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrap>
+        )}
+      </div>
+
+      {viewingSellerId && (
+        <SellerDetailModal sellerId={viewingSellerId} onClose={() => setViewingSellerId(null)} />
       )}
-    </div>
+    </>
   )
 }
 
@@ -356,6 +527,8 @@ function UsersTab() {
   const [loading, setLoading] = useState(true)
   const [search,  setSearch]  = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
+  const [confirmUser, setConfirmUser] = useState(null)
+  const [updatingId, setUpdatingId] = useState(null)
 
   useEffect(() => {
     apiClient.get('/admin/users')
@@ -370,50 +543,93 @@ function UsersTab() {
     return matchSearch && matchRole
   })
 
+  async function handleToggleStatus(user) {
+    const nextActive = user.isActive === false ? true : false
+    setUpdatingId(user.id)
+    try {
+      await apiClient.patch(`/admin/users/${user.id}/status`, { isActive: nextActive })
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isActive: nextActive } : u))
+      toast.success(nextActive ? 'User reactivated' : 'User deactivated')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update user')
+    } finally {
+      setUpdatingId(null)
+      setConfirmUser(null)
+    }
+  }
+
   return (
-    <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
-        <div className="sec-label">All Users ({users.length})</div>
-        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-          {['ALL','USER','SELLER','ADMIN'].map(r => (
-            <button key={r} onClick={() => setRoleFilter(r)}
-              style={{ padding:'7px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', background: roleFilter===r ? 'var(--ink)' : 'var(--paper)', color: roleFilter===r ? '#fff' : 'var(--fog)', transition:'all 0.15s' }}>
-              {r}
-            </button>
-          ))}
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users…"
-            style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:200, transition:'border-color 0.2s' }}
-            onFocus={e => e.target.style.borderColor='var(--ink)'}
-            onBlur={e => e.target.style.borderColor='var(--stone)'} />
-        </div>
-      </div>
-      {loading ? <Spinner label="Loading users…" /> : (
-        <TableWrap>
-          <thead>
-            <tr>
-              <TH>Name</TH>
-              <TH hide>Email</TH>
-              <TH>Role</TH>
-              <TH>Orders</TH>
-              <TH hide>Joined</TH>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(user => (
-              <tr key={user.id}
-                onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
-                onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
-                <TD bold>{user.name}</TD>
-                <TD hide>{user.email}</TD>
-                <TD><RoleBadge role={user.role} /></TD>
-                <TD mono>{user._count?.orders || 0}</TD>
-                <TD hide>{new Date(user.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</TD>
-              </tr>
+    <>
+      <div style={{ background:'var(--paper)', border:'1.5px solid var(--stone)', borderRadius:16, padding:'24px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+          <div className="sec-label">All Users ({users.length})</div>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            {['ALL','USER','SELLER','ADMIN'].map(r => (
+              <button key={r} onClick={() => setRoleFilter(r)}
+                style={{ padding:'7px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', background: roleFilter===r ? 'var(--ink)' : 'var(--paper)', color: roleFilter===r ? '#fff' : 'var(--fog)', transition:'all 0.15s' }}>
+                {r}
+              </button>
             ))}
-          </tbody>
-        </TableWrap>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users…"
+              style={{ padding:'9px 14px', border:'1.5px solid var(--stone)', borderRadius:8, fontSize:13, fontFamily:'inherit', outline:'none', color:'var(--ink)', background:'var(--paper)', width:200, transition:'border-color 0.2s' }}
+              onFocus={e => e.target.style.borderColor='var(--ink)'}
+              onBlur={e => e.target.style.borderColor='var(--stone)'} />
+          </div>
+        </div>
+        {loading ? <Spinner label="Loading users…" /> : (
+          <TableWrap>
+            <thead>
+              <tr>
+                <TH>Name</TH>
+                <TH hide>Email</TH>
+                <TH>Role</TH>
+                <TH>Status</TH>
+                <TH>Orders</TH>
+                <TH hide>Joined</TH>
+                <TH>Actions</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && <EmptyRow colSpan={7} label="No users found." />}
+              {filtered.map(user => (
+                <tr key={user.id}
+                  onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}
+                  onMouseLeave={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='transparent')}>
+                  <TD bold>{user.name}</TD>
+                  <TD hide>{user.email}</TD>
+                  <TD><RoleBadge role={user.role} /></TD>
+                  <TD><ActiveBadge active={user.isActive} /></TD>
+                  <TD mono>{user._count?.orders || 0}</TD>
+                  <TD hide>{fmtDate(user.createdAt)}</TD>
+                  <TD>
+                    <button disabled={updatingId === user.id} onClick={() => setConfirmUser(user)}
+                      style={{ padding:'7px 14px', border:'1.5px solid', borderColor: user.isActive === false ? 'var(--stone)' : '#f0c9c9', borderRadius:8, background:'var(--paper)', color: user.isActive === false ? 'var(--ink)' : '#c02020', fontWeight:700, fontSize:12, cursor: updatingId === user.id ? 'default' : 'pointer', fontFamily:'inherit', whiteSpace:'nowrap', opacity: updatingId === user.id ? 0.5 : 1 }}>
+                      {user.isActive === false ? 'Reactivate' : 'Deactivate'}
+                    </button>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </TableWrap>
+        )}
+      </div>
+
+      {confirmUser && (
+        <ConfirmDialog
+          title={confirmUser.isActive === false ? 'Reactivate user?' : 'Deactivate user?'}
+          message={
+            confirmUser.isActive === false
+              ? `${confirmUser.name} will regain access and be able to log in again.`
+              : `${confirmUser.name} will be signed out and unable to log in. Their orders and data are kept, and you can reactivate the account anytime.`
+          }
+          confirmLabel={confirmUser.isActive === false ? 'Reactivate' : 'Deactivate'}
+          danger={confirmUser.isActive !== false}
+          loading={updatingId === confirmUser.id}
+          onConfirm={() => handleToggleStatus(confirmUser)}
+          onCancel={() => setConfirmUser(null)}
+        />
       )}
-    </div>
+    </>
   )
 }
 
@@ -458,6 +674,7 @@ function ProductsTab() {
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && <EmptyRow colSpan={6} label="No products found." />}
             {filtered.map(p => (
               <tr key={p.id}
                 onMouseEnter={e => Array.from(e.currentTarget.cells).forEach(c => c.style.background='var(--mist)')}

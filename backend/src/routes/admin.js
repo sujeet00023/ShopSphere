@@ -1,12 +1,13 @@
 import express from 'express'
-import {PrismaClient} from '@prisma/client'
-import {authMiddleware, requireRole} from '../middleware/auth.js'
+import { PrismaClient } from '@prisma/client'
+import { authMiddleware, requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
+
 // GET /api/admin/dashboard (admin dashboard stats)
-router.get('/dashboard', authMiddleware,requireRole('ADMIN'), async(req, res) =>{
-    try{
+router.get('/dashboard', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
         const [
             totalUsers,
             totalSellers,
@@ -18,25 +19,24 @@ router.get('/dashboard', authMiddleware,requireRole('ADMIN'), async(req, res) =>
             revenueByMonth,
         ] = await Promise.all([
             prisma.user.count(),
-            prisma.user.count({where: {role: 'SELLER'} } ),
+            prisma.user.count({ where: { role: 'SELLER' } }),
             prisma.product.count(),
             prisma.order.count(),
             prisma.order.aggregate({
-                _sum: {total: true},
+                _sum: { total: true },
             }),
             prisma.order.findMany({
                 take: 10,
-                orderBy: {createdAt:'desc'},
+                orderBy: { createdAt: 'desc' },
                 include: {
-                    customer: {select: {name: true, email: true}},
-                    items: {include: {product: {select: {name: true}}}},
+                    customer: { select: { name: true, email: true } },
+                    items: { include: { product: { select: { name: true } } } },
                 },
             }),
             prisma.product.findMany({
-                orderBy: {sold: 'desc'},
-                take:5,
-                select: {id: true, name: true, sold: true, price: true, rating: true},
-
+                orderBy: { sold: 'desc' },
+                take: 5,
+                select: { id: true, name: true, sold: true, price: true, rating: true },
             }),
             getMonthlyRevenue(),
         ])
@@ -49,89 +49,151 @@ router.get('/dashboard', authMiddleware,requireRole('ADMIN'), async(req, res) =>
                 totalOrders,
                 totalRevenue: totalRevenue._sum.total || 0,
                 avgOrderValue: totalOrders > 0
-                ? (totalRevenue._sum.total / totalOrders).toFixed(2)
-                : 0,
+                    ? (totalRevenue._sum.total / totalOrders).toFixed(2)
+                    : 0,
             },
             recentOrders,
             topProducts,
             revenueByMonth,
         }
 
-        res.json({data: dashboard })
-    }catch(err){
+        res.json({ data: dashboard })
+    } catch (err) {
         console.error('Admin dashboard error: ', err)
-        res.status(500).json({ message: 'Failed to fetch dashboard '})
+        res.status(500).json({ message: 'Failed to fetch dashboard' })
     }
 })
 
-//GET /api/admin/users (all users management)
-router.get('/users', authMiddleware, requireRole('ADMIN'), async(req, res) =>{
-    try{
-        const { page = 1, limit = 20, role, search } = req.body
+// GET /api/admin/users (all users management)
+router.get('/users', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        // NOTE: was reading req.body on a GET request (clients don't send a body
+        // with GET), so role/search filters never actually worked. Fixed to req.query.
+        const { page = 1, limit = 20, role, search } = req.query
 
-        const skip = (parseInt(page)-1 ) * parseInt(limit)
+        const skip = (parseInt(page) - 1) * parseInt(limit)
         const where = {}
-        if(role) where.role = role.toUpperCase()
-        if(search) {
-            where. OR = [
-                {email: {contains: search, mode: 'insensitive'} },
-                {name: {contains: search, mode: 'insensitive'} },
+        if (role) where.role = role.toUpperCase()
+        if (search) {
+            where.OR = [
+                { email: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: 'insensitive' } },
             ]
         }
 
-    const [users, total] = await Promise.all([
-        prisma.user.findMany({
-            where,
-            skip,
-            take: parseInt(limit),
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true, 
-                _count: {select: {orders: true}},
-            
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                skip,
+                take: parseInt(limit),
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    role: true,
+                    createdAt: true,
+                    _count: { select: { orders: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma.user.count({ where }),
+        ])
+
+        res.json({
+            data: users,
+            pagination: {
+                total,
+                page: parseInt(page),
+                pages: Math.ceil(total / parseInt(limit)),
             },
-            orderBy: { createdAt: 'desc'},
-        }),
-        prisma.user.count({ where }),
-
-    ])
-
-    res.json({
-        data: users,
-        pagination:{
-            total,
-            page: parseInt(page),
-            pages: Math.ceil(total / parseInt(limit)),
-        },
-    })
-    }catch( err) {
-        res.status(500).json({ message: 'Failed to fetch users '})
+        })
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch users' })
     }
-
 })
 
-//GET /api/admin/sellers (all sellers management)
-router.get('/sellers', authMiddleware, requireRole('ADMIN'), async(req, res) =>{
-    try{
-        const sellers = await prisma.sellerProfile.findMany({
-            include:{
-                user: {
-                    select: {email: true, name: true, createdAt: true},
+// PATCH /api/admin/users/:id/status (soft delete / reactivate a user)
+router.patch('/users/:id/status', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const { isActive } = req.body
+        const { id } = req.params
 
-                },
-                _count: {select: {products: true, orders: true}}
-            },
-            orderBy: { totalEarnings: 'desc'}
+        if (typeof isActive !== 'boolean') {
+            return res.status(400).json({ message: 'isActive must be true or false' })
+        }
+
+        if (id === req.user.id) {
+            return res.status(400).json({ message: 'You cannot deactivate your own account' })
+        }
+
+        const user = await prisma.user.update({
+            where: { id },
+            data: { isActive },
+            select: { id: true, name: true, email: true, role: true },
         })
 
-        res.json({data: sellers})
-    }catch(err){
-        res.status(500).json({ message: 'Failed to fetch sellers'})
+        res.json({ data: user })
+    } catch (err) {
+        if (err.code === 'P2025') {
+            return res.status(404).json({ message: 'User not found' })
+        }
+        console.error('Update user status error: ', err)
+        res.status(500).json({ message: 'Failed to update user status' })
     }
 })
+
+// GET /api/admin/sellers (all sellers management)
+router.get('/sellers', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const sellers = await prisma.sellerProfile.findMany({
+            include: {
+                user: { select: { email: true, name: true, createdAt: true } },
+                _count: { select: { products: true, orders: true } },
+            },
+            orderBy: { totalEarnings: 'desc' },
+        })
+
+        res.json({ data: sellers })
+    } catch (err) {
+        console.error('SELLER ERROR', error )
+        res.status(500).json({ message: 'Failed to fetch sellers' })
+    }
+})
+
+// GET /api/admin/sellers/:id (full seller detail view)
+router.get('/sellers/:id', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const seller = await prisma.sellerProfile.findUnique({
+            where: { id: req.params.id },
+            include: {
+                user: { select: { id: true, name: true, email: true, createdAt: true } },
+                products: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true, name: true, price: true, stock: true,
+                        sold: true, rating: true, thumbnail: true,
+                    },
+                },
+                orders: {
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    include: { customer: { select: { name: true } } },
+                },
+                _count: { select: { products: true, orders: true } },
+            },
+        })
+
+        if (!seller) {
+            return res.status(404).json({ message: 'Seller not found' })
+        }
+
+        res.json({ data: seller })
+    } catch (err) {
+        console.error('Seller detail error: ', err)
+        res.status(500).json({ message: 'Failed to fetch seller details' })
+    }
+})
+
 // GET /admin/products - Get all products
 router.get('/products', authMiddleware, requireRole('ADMIN'), async (req, res) => {
   try {
@@ -139,8 +201,8 @@ router.get('/products', authMiddleware, requireRole('ADMIN'), async (req, res) =
     const limit = parseInt(req.query.limit) || 20
     const skip = (page - 1) * limit
     const search = req.query.search || ''
- 
-    const where = search 
+
+    const where = search
       ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' } },
@@ -148,40 +210,40 @@ router.get('/products', authMiddleware, requireRole('ADMIN'), async (req, res) =
           ]
         }
       : {}
- 
+
     const products = await prisma.product.findMany({
       where,
       skip,
       take: limit,
       include: {
         seller: {
-  select: {
-    id: true,
-    storeName: true,
-    user: {
-      select: {
-        name: true,
-        email: true
-      }
-    }
-  }
-},
+          select: {
+            id: true,
+            storeName: true,
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          }
+        },
         category: { select: { id: true, name: true } },
         reviews: { select: { rating: true } }
       },
       orderBy: { createdAt: 'desc' }
     })
- 
+
     const total = await prisma.product.count({ where })
- 
+
     const productsWithStats = products.map(p => ({
       ...p,
-      avgRating: p.reviews.length > 0 
+      avgRating: p.reviews.length > 0
         ? (p.reviews.reduce((sum, r) => sum + r.rating, 0) / p.reviews.length).toFixed(1)
         : 0,
       reviewCount: p.reviews.length
     }))
- 
+
     res.json({
       status: 'success',
       data: productsWithStats,
@@ -196,7 +258,7 @@ router.get('/products', authMiddleware, requireRole('ADMIN'), async (req, res) =
     res.status(500).json({ status: 'error', message: err.message })
   }
 })
- 
+
 // GET /admin/products/:id - Get product details
 router.get('/products/:id', authMiddleware, requireRole('ADMIN'), async (req, res) => {
   try {
@@ -208,43 +270,40 @@ router.get('/products/:id', authMiddleware, requireRole('ADMIN'), async (req, re
         reviews: true
       }
     })
- 
+
     if (!product) {
       return res.status(404).json({ status: 'error', message: 'Product not found' })
     }
- 
+
     res.json({ status: 'success', data: product })
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message })
   }
 })
 
-
-
 // GET /api/admin/orders (all orders)
-router.get('/orders', authMiddleware, requireRole('ADMIN'), async (req, res) =>{
-    try{
+router.get('/orders', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
         const { page = 1, limit = 20, status } = req.query
 
-        const skip = (parseInt(page) - 1) * parseInt (limit)
+        const skip = (parseInt(page) - 1) * parseInt(limit)
         const where = {}
 
-        if(status) where. status = status
+        if (status) where.status = status
 
         const [orders, total] = await Promise.all([
             prisma.order.findMany({
                 where,
                 skip,
                 take: parseInt(limit),
-                include:{
-                    customer: { select: {name: true, email: true} },
-                    seller: {select: {storeName:  true}},
-                    items: { select: {_count: true} },
+                include: {
+                    customer: { select: { name: true, email: true } },
+                    seller: { select: { storeName: true } },
+                    items: { select: { _count: true } },
                 },
-                orderBy: {createdAt: 'desc'},
+                orderBy: { createdAt: 'desc' },
             }),
             prisma.order.count({ where }),
-
         ])
 
         res.json({
@@ -252,68 +311,66 @@ router.get('/orders', authMiddleware, requireRole('ADMIN'), async (req, res) =>{
             pagination: {
                 total,
                 page: parseInt(page),
-                pages: Math.ceil(total / parseInt(limit) ),
+                pages: Math.ceil(total / parseInt(limit)),
             },
         })
-    }catch(err){
-        res.status(500).json({ message: 'Failed to fetch orders '})
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch orders' })
     }
 })
 
 // PATCH /api/admin/orders/:id/status
-router.patch('/orders/:id/status', authMiddleware, requireRole("ADMIN"), async(req, res) =>{
-    try{
-        const {status} = req.body
-        const vaildStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED']
+router.patch('/orders/:id/status', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        const { status } = req.body
+        const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'CANCELLED']
 
-        if(!vaildStatuses.includes(status)){
-            return res.status(400).json({ message: 'Invalid status '})
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' })
         }
 
         const order = await prisma.order.update({
-            where: {id: req.params.id},
-            data: {status},
-            include: {customer: true, items: true},
+            where: { id: req.params.id },
+            data: { status },
+            include: { customer: true, items: true },
         })
 
-        res.json({data: order })
-
-    }catch(err){
-        res.status(500).json({ message: 'Failed to update order '})
-
+        res.json({ data: order })
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to update order' })
     }
 })
 
 // DELETE /api/admin/products/:id
-router.delete('/products/:id', authMiddleware,requireRole('ADMIN'), async (req, res) =>{
-    try{
-        await prisma.product.delete({ where: { id: req.params.id }})
-        res.json({ message: 'Product delete '})
-    }catch(err) {
-        res.status(500).json({ message: 'Failed to delete product '})
+router.delete('/products/:id', authMiddleware, requireRole('ADMIN'), async (req, res) => {
+    try {
+        await prisma.product.delete({ where: { id: req.params.id } })
+        res.json({ message: 'Product deleted' })
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to delete product' })
     }
 })
 
 async function getMonthlyRevenue() {
     const months = {}
-    const orders =await prisma.order.findMany({
-        where: {paymentStatus:'COMPLETED'},
-        select: {createdAt: true, total: true },
+    const orders = await prisma.order.findMany({
+        where: { paymentStatus: 'COMPLETED' },
+        select: { createdAt: true, total: true },
     })
 
-orders.forEach(order =>{
-    const key = new Date(order.createdAt).toLocaleDateString('en-US',{
-        month: 'short',
-        year: '2-digit',
-
+    orders.forEach(order => {
+        const key = new Date(order.createdAt).toLocaleDateString('en-US', {
+            month: 'short',
+            year: '2-digit',
+        })
+        // was `moths[key]` (typo) — this threw a ReferenceError and crashed
+        // the whole /admin/dashboard endpoint via Promise.all. Fixed below.
+        months[key] = (months[key] || 0) + order.total
     })
-    moths[key] = (months[key] || 0) + order.total
-})
-return Object.entries(months)
-.slice(-6)
-.map(([month, revenue]) => ({ month, revenue: parseFloat(revenue.toFixed(2))}))
 
-
+    return Object.entries(months)
+        .slice(-6)
+        .map(([month, revenue]) => ({ month, revenue: parseFloat(revenue.toFixed(2)) }))
 }
 
 export default router
