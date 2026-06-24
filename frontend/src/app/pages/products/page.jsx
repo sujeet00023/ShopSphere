@@ -86,13 +86,14 @@ export default function ProductPage() {
     setLoading(true)
     try {
       const params = {
-        page, limit: 12,
-        ...(category && { categoryId: category }),
-        ...(sortBy   && { sort: sortBy }),
-        ...(search   && { search }),
-        ...(minPrice && { minPrice }),
-        ...(maxPrice && { maxPrice }),
-      }
+  page,
+  limit: 12,
+  ...(category && { category }),
+  ...(sortBy && { sort: sortBy }),
+  ...(search && { search }),
+  ...(minPrice && { minPrice }),
+  ...(maxPrice && { maxPrice }),
+}
       const { data } = await apiClient.get('/products', { params })
       setProducts(data.data)
       setPagination(data.pagination)
@@ -230,7 +231,8 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <ProductGrid products={products} loading={loading} />
+            
+
 
 
             {/* Mobile sort bar */}

@@ -29,9 +29,14 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
       prisma.product.count({ where: { sellerId: seller.id } }),
       prisma.order.count({ where: { sellerId: seller.id } }),
       prisma.order.aggregate({
-        where: { sellerId: seller.id, paymentStatus: 'COMPLETED' },
-        _sum: { total: true },
-      }),
+  where: {
+    sellerId: seller.id,
+    status: 'DELIVERED'
+  },
+  _sum: {
+    total: true
+  }
+}),
       prisma.sellerProfile.findUnique({
         where: { id: seller.id },
         select: { rating: true },
@@ -59,10 +64,10 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
       getSellerMonthlyRevenue(seller.id),
     ])
 
-    const completedOrders = await prisma.order.count({
+const completedOrders = await prisma.order.count({
   where: {
     sellerId: seller.id,
-    paymentStatus: 'COMPLETED'
+    status: 'DELIVERED'
   }
 })
 
@@ -85,7 +90,17 @@ router.get('/dashboard', authMiddleware, requireRole('SELLER'), async (req, res)
       topProducts,
       monthlyRevenue,
     }
+/* const debugOrders = await prisma.order.findMany({
+  where: { sellerId: seller.id },
+  select: {
+    id: true,
+    total: true,
+    paymentStatus: true,
+    status: true
+  }
+})
 
+console.log(JSON.stringify(debugOrders, null, 2)) */
     res.json({ data: dashboard })
   } catch (err) {
     console.error('Seller dashboard error:', err)
