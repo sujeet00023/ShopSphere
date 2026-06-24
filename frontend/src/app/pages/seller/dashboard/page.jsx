@@ -13,6 +13,52 @@ import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 
 /* ─────────────────────────────────────────
+   CUSTOM CONFIRMATION MODAL
+───────────────────────────────────────── */
+function ConfirmationModal({ isOpen, title, message, icon, onConfirm, onCancel, confirmText, cancelText, isDanger }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+        {/* Header with icon */}
+        <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mt-6 ${
+          isDanger ? 'bg-red-100' : 'bg-blue-100'
+        }`}>
+          <span className="text-2xl">{icon}</span>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 text-center">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">{title}</h2>
+          <p className="text-sm text-gray-500 leading-relaxed">{message}</p>
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-6 flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-all text-sm ${
+              isDanger
+                ? 'bg-red-600 hover:bg-red-700 active:scale-95'
+                : 'bg-[#6C63FF] hover:bg-[#5B53E8] active:scale-95'
+            }`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────
    SELLER DASHBOARD (root)
 ───────────────────────────────────────── */
 export default function SellerDashboard() {
@@ -56,6 +102,7 @@ export default function SellerDashboard() {
     { id: 'products', label: 'Products', icon: '🛍️' },
     { id: 'orders',     label: 'Orders',     icon: '📦' },
     { id: 'inventory',  label: 'Inventory',  icon: '🗂' },
+    
     { id: 'analytics',  label: 'Analytics',  icon: '📊' },
     { id: 'reviews',    label: 'Reviews',    icon: '💬' },
   ]
@@ -368,6 +415,8 @@ function InventorySection() {
   const [activeTab, setActiveTab] = useState('overview')
   const [editingId, setEditingId] = useState(null)
   const [newStock, setNewStock]   = useState('')
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, productId: null, productName: '' })
+  const router = useRouter()
 
   useEffect(() => { fetchInventory() }, [])
 
@@ -397,6 +446,27 @@ function InventorySection() {
     }
   }
 
+  async function handleDeleteConfirm() {
+    if (!deleteModal.productId) return
+    
+    try {
+      await apiClient.delete(`/products/${deleteModal.productId}`)
+      toast.success('Product deleted successfully')
+      setDeleteModal({ isOpen: false, productId: null, productName: '' })
+      fetchInventory()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete product')
+    }
+  }
+
+  function openDeleteModal(productId, productName) {
+    setDeleteModal({ isOpen: true, productId, productName })
+  }
+
+  function closeDeleteModal() {
+    setDeleteModal({ isOpen: false, productId: null, productName: '' })
+  }
+
   if (loading) return (
     <div className="text-center py-12 text-gray-400 text-sm">Loading inventory…</div>
   )
@@ -411,25 +481,38 @@ function InventorySection() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Product?"
+        message={`Are you sure you want to delete "${deleteModal.productName}"? This action cannot be undone and all related data will be permanently removed.`}
+        icon="🗑️"
+        onConfirm={handleDeleteConfirm}
+        onCancel={closeDeleteModal}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDanger={true}
+      />
+
       {/* KPI row */}
       {inventory && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-  {[
+          {[
             { label: 'Total Products', value: inventory.total,              color: 'text-gray-900' },
             { label: 'In Stock',       value: inventory.inStock.length,     color: 'text-green-600' },
             { label: 'Low Stock',      value: inventory.lowStock.length,    color: 'text-amber-600' },
             { label: 'Out of Stock',   value: inventory.outOfStock.length,  color: 'text-red-500' },
-  ].map(k => (
-    <div key={k.label} className="bg-white rounded-xl border border-gray-100 p-5">
-      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
-        {k.label}
-      </p>
-      <p className="text-2xl font-bold text-gray-900 tracking-tight">
-        {k.value}
-      </p>
-    </div>
-  ))}
-</div>
+          ].map(k => (
+            <div key={k.label} className="bg-white rounded-xl border border-gray-100 p-5">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                {k.label}
+              </p>
+              <p className="text-2xl font-bold text-gray-900 tracking-tight">
+                {k.value}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Alert strip */}
@@ -453,7 +536,7 @@ function InventorySection() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
           <p className="text-[14px] font-semibold text-gray-900">Inventory Management</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">Click Edit to update stock levels</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Click Edit to update stock levels, or Delete to remove products</p>
         </div>
 
         {/* Tabs */}
@@ -498,6 +581,8 @@ function InventorySection() {
             onStockChange={setNewStock}
             onSave={id => updateStock(id, newStock)}
             onCancel={() => setEditingId(null)}
+            onEditProduct={(id) => router.push(`/pages/products/${id}/edit`)}
+            onDelete={(id, name) => openDeleteModal(id, name)}
           />
         )}
 
@@ -509,6 +594,8 @@ function InventorySection() {
             onStockChange={setNewStock}
             onSave={id => updateStock(id, newStock)}
             onCancel={() => setEditingId(null)}
+            onEditProduct={(id) => router.push(`/pages/products/${id}/edit`)}
+            onDelete={(id, name) => openDeleteModal(id, name)}
           />
         )}
 
@@ -520,6 +607,8 @@ function InventorySection() {
             onStockChange={setNewStock}
             onSave={id => updateStock(id, newStock)}
             onCancel={() => setEditingId(null)}
+            onEditProduct={(id) => router.push(`/pages/products/${id}/edit`)}
+            onDelete={(id, name) => openDeleteModal(id, name)}
           />
         )}
 
@@ -558,11 +647,19 @@ function InventorySection() {
   )
 }
 
-function InventoryTable({ products, editingId, newStock, onEdit, onStockChange, onSave, onCancel }) {
+function InventoryTable({ products, editingId, newStock, onEdit, onStockChange, onSave, onCancel, onEditProduct, onDelete }) {
+  const [deleting, setDeleting] = useState(null)
+
   function stockPillClass(stock) {
     if (stock === 0)   return 'bg-red-50 text-red-700'
     if (stock <= 10)   return 'bg-amber-50 text-amber-700'
     return 'bg-green-50 text-green-700'
+  }
+
+  function handleDeleteClick(productId, productName) {
+    setDeleting(productId)
+    onDelete(productId, productName)
+    setDeleting(null)
   }
 
   return (
@@ -581,9 +678,9 @@ function InventoryTable({ products, editingId, newStock, onEdit, onStockChange, 
           {products.map(product => (
             <tr key={product.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-5 py-3.5 text-[13px] font-medium text-gray-900">{product.name}</td>
-             <td className="px-5 py-3.5 text-[12px] font-mono text-gray-700">
-  ₹{product.price.toLocaleString('en-IN')}
-</td>
+              <td className="px-5 py-3.5 text-[12px] font-mono text-gray-700">
+                ₹{product.price.toLocaleString('en-IN')}
+              </td>
               <td className="px-5 py-3.5">
                 {editingId === product.id ? (
                   <input
@@ -618,12 +715,23 @@ function InventoryTable({ products, editingId, newStock, onEdit, onStockChange, 
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => onEdit(product.id, product.stock)}
-                    className="text-[12px] font-semibold text-[#6C63FF] hover:text-[#5148E8]"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onEditProduct(product.id)}
+                      className="text-[12px] font-semibold text-[#6C63FF] hover:text-[#5148E8]"
+                    >
+                      Edit
+                    </button>
+                    <span className="text-gray-200">|</span>
+                    <button
+                      onClick={() => handleDeleteClick(product.id, product.name)}
+                      disabled={deleting === product.id}
+                      className="text-[12px] font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      title="Delete product"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
               </td>
             </tr>
@@ -647,13 +755,10 @@ function AnalyticsSection({ analytics }) {
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         {[
-          [
-  { label: 'Total Products', value: analytics.products ?? 0 },
-
-  { label: 'Total Views', value: (analytics.views ?? 0).toLocaleString() },
-  { label: 'Conversions', value: (analytics.conversions ?? 0).toLocaleString() },
-  { label: 'Conversion Rate', value: `${analytics.conversionRate ?? 0}%` },
-]
+          { label: 'Total Products', value: analytics.products ?? 0 },
+          { label: 'Total Views', value: (analytics.views ?? 0).toLocaleString() },
+          { label: 'Conversions', value: (analytics.conversions ?? 0).toLocaleString() },
+          { label: 'Conversion Rate', value: `${analytics.conversionRate ?? 0}%` },
         ].map(k => (
           <div key={k.label} className="bg-white rounded-xl border border-gray-100 p-5">
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{k.label}</p>

@@ -7,6 +7,7 @@ const prisma = new PrismaClient()
 
 // ── GET /api/products (public listing with filters) ────────────────────────
 router.get('/', async (req, res) => {
+  console.log(req.query)
   try {
     const { 
       page = 1, 
@@ -170,6 +171,55 @@ router.put('/:id', authMiddleware, requireRole('SELLER', 'ADMIN'), async (req, r
     res.status(500).json({ message: 'Failed to update product.' })
   }
 })
+
+router.delete(
+  '/:id',
+  authMiddleware,
+  requireRole('SELLER', 'ADMIN'),
+  async (req, res) => {
+    try {
+      const product = await prisma.product.findUnique({
+        where: { id: req.params.id }
+      })
+
+      if (!product) {
+        return res.status(404).json({
+          message: 'Product not found'
+        })
+      }
+
+      // Get seller profile
+      const seller = await prisma.sellerProfile.findUnique({
+        where: { userId: req.user.id }
+      })
+
+      // Allow only owner or admin
+      if (
+        req.user.role !== 'ADMIN' &&
+        product.sellerId !== seller?.id
+      ) {
+        return res.status(403).json({
+          message: 'Not authorized'
+        })
+      }
+
+      await prisma.product.delete({
+        where: { id: req.params.id }
+      })
+
+      res.json({
+        success: true,
+        message: 'Product deleted successfully'
+      })
+
+    } catch (error) {
+      console.error(error)
+      res.status(500).json({
+        message: 'Failed to delete product'
+      })
+    }
+  }
+)
 
 // ── GET /api/products/seller/dashboard (seller's products) ─────────────────
 router.get('/seller/products', authMiddleware, requireRole('SELLER'), async (req, res) => {
