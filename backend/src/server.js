@@ -65,7 +65,7 @@ import analyticsRoutes from './routes/analytics.js'
 import inventoryRoutes from './routes/inventory.js'
 import recommendationsRoutes from './routes/recommendations.js'
 import searchRoutes from './routes/search.js'
-import razorpayRoutes from './routes/razorpay.js'
+
 
 // ══════════════════════════════════════════════════════════════════════
 // HEALTH CHECK ENDPOINT
@@ -113,9 +113,6 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/inventory', inventoryRoutes)
 app.use('/api/recommendations', recommendationsRoutes)
 app.use('/api/search', searchRoutes)
-app.use('/api/razorpay', razorpayRoutes)
-console.log("KEY ID:", process.env.RAZORPAY_KEY_ID);
-console.log("KEY SECRET:", process.env.RAZORPAY_KEY_SECRET);
 // ══════════════════════════════════════════════════════════════════════
 // 404 ERROR HANDLER
 // ══════════════════════════════════════════════════════════════════════
