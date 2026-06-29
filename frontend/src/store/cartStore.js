@@ -1,10 +1,14 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export const useCartStore = create(
   persist(
     (set, get) => ({
       items: [],
+      hydrated: false,
+
+      // ✅ mark hydration complete
+      setHydrated: () => set({ hydrated: true }),
 
       addToCart: (product, quantity = 1) => {
         set((state) => {
@@ -34,7 +38,9 @@ export const useCartStore = create(
 
         set((state) => ({
           items: state.items.map((item) =>
-            item.id === productId ? { ...item, quantity } : item
+            item.id === productId
+              ? { ...item, quantity }
+              : item
           ),
         }))
       },
@@ -49,23 +55,32 @@ export const useCartStore = create(
 
       getTotals: () => {
         const items = get().items
+
         const subtotal = items.reduce(
           (sum, item) => sum + item.price * item.quantity,
           0
         )
+
         const tax = subtotal * 0.1
         const total = subtotal + tax
 
         return {
-          itemCount: items.length,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          tax: parseFloat(tax.toFixed(2)),
-          total: parseFloat(total.toFixed(2)),
+          itemCount: items.reduce((sum, item) => sum + item.quantity, 0), // ✅ FIXED
+          subtotal: Number(subtotal.toFixed(2)),
+          tax: Number(tax.toFixed(2)),
+          total: Number(total.toFixed(2)),
         }
       },
     }),
     {
       name: 'cart-store',
+
+      // ✅ safe localStorage handling
+      storage: createJSONStorage(() => localStorage),
+
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated?.()
+      },
     }
   )
 )
