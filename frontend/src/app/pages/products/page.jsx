@@ -124,6 +124,23 @@ export default function ProductPage() {
     })
   }
 
+  async function handleAddToCart(product) {
+  try {
+    await apiClient.post('/cart', {
+      productId: product.id,
+      quantity: 1,
+    })
+
+    window.dispatchEvent(new Event('cartUpdated'))
+
+    toast.success(`${product.name} added to cart`)
+  } catch (err) {
+    toast.error(
+      err.response?.data?.message || 'Failed to add to cart'
+    )
+  }
+}
+
   const activeFilters = [
     category && categories.find(c => c.id === category)?.name,
     sortBy !== 'newest' && SORT_OPTIONS.find(s => s.value === sortBy)?.label,
@@ -231,8 +248,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            
-
 
 
             {/* Mobile sort bar */}
@@ -255,10 +270,15 @@ export default function ProductPage() {
             ) : (
               <div className={viewMode === 'grid' ? 'product-grid' : 'product-list'}>
                 {products.map(product => (
-                  <ProductCard key={product.id} product={product} viewMode={viewMode}
-                    wishlisted={wishlist.has(product.id)}
-                    onWishlist={() => toggleWishlist(product.id)}
-                    onQuickView={() => setQuickView(product)} />
+                  <ProductCard
+    key={product.id}
+    product={product}
+    viewMode={viewMode}
+    wishlisted={wishlist.has(product.id)}
+    onWishlist={() => toggleWishlist(product.id)}
+    onQuickView={() => setQuickView(product)}
+    onAddToCart={() => handleAddToCart(product)}
+/>
                 ))}
               </div>
             )}
@@ -306,8 +326,13 @@ export default function ProductPage() {
 
       {/* ── QUICK VIEW ── */}
       {quickView && (
-        <QuickViewModal product={quickView} onClose={() => setQuickView(null)}
-          wishlisted={wishlist.has(quickView.id)} onWishlist={() => toggleWishlist(quickView.id)} />
+<QuickViewModal
+  product={quickView}
+  onClose={() => setQuickView(null)}
+  wishlisted={wishlist.has(quickView.id)}
+  onWishlist={() => toggleWishlist(quickView.id)}
+  onAddToCart={() => handleAddToCart(quickView)}
+/>
       )}
 
     </div>
@@ -429,7 +454,14 @@ function SidebarBtn({ active, onClick, accentColor, activeBg, activeColor, child
 function HR() { return <div style={{ height: 1.5, background: T.border, margin: '16px 0' }} /> }
 
 /* ── PRODUCT CARD ─────────────────────────────────────────────────────────── */
-function ProductCard({ product, viewMode, wishlisted, onWishlist, onQuickView }) {
+function ProductCard({
+    product,
+    viewMode,
+    wishlisted,
+    onWishlist,
+    onQuickView,
+    onAddToCart
+}) {
   const [hov, setHov] = useState(false)
   const discount   = product.discountPct > 0
   const finalPrice = discount ? product.price * (1 - product.discountPct / 100) : product.price
@@ -455,7 +487,12 @@ function ProductCard({ product, viewMode, wishlisted, onWishlist, onQuickView })
             <div style={{ display: 'flex', gap: 8 }}>
               <WishBtn active={wishlisted} onClick={onWishlist} />
               <QuickBtn onClick={onQuickView} />
-              <ActionBtn disabled={product.stock === 0}>{product.stock === 0 ? 'Sold Out' : 'Add to Cart'}</ActionBtn>
+              <ActionBtn
+    onClick={onAddToCart}
+    disabled={product.stock === 0}
+>
+    {product.stock === 0 ? 'Sold Out' : 'Add to Cart'}
+</ActionBtn>
             </div>
           </div>
         </div>
@@ -503,9 +540,12 @@ function ProductCard({ product, viewMode, wishlisted, onWishlist, onQuickView })
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
           <PriceBlock price={product.price} finalPrice={finalPrice} discount={discount} />
-          <ActionBtn disabled={product.stock === 0} small>
-            {product.stock === 0 ? 'Sold Out' : '+ Cart'}
-          </ActionBtn>
+          <ActionBtn
+    onClick={onAddToCart}
+    disabled={product.stock === 0}
+>
+    + Cart
+</ActionBtn>
         </div>
 
         {product.stock > 0 && product.stock <= 10 && (
@@ -517,7 +557,13 @@ function ProductCard({ product, viewMode, wishlisted, onWishlist, onQuickView })
 }
 
 /* ── QUICK VIEW MODAL ─────────────────────────────────────────────────────── */
-function QuickViewModal({ product, onClose, wishlisted, onWishlist }) {
+function QuickViewModal({
+  product,
+  onClose,
+  wishlisted,
+  onWishlist,
+  onAddToCart
+}) {
   const discount   = product.discountPct > 0
   const finalPrice = discount ? product.price * (1 - product.discountPct / 100) : product.price
   useEffect(() => { document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = '' } }, [])
@@ -552,10 +598,25 @@ function QuickViewModal({ product, onClose, wishlisted, onWishlist }) {
               {product.stock > 0 ? `✓ In Stock (${product.stock} available)` : '✕ Out of Stock'}
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 'auto' }}>
-              <button disabled={product.stock === 0}
-                style={{ flex: 1, padding: '12px', background: `linear-gradient(135deg, ${T.violet}, #5B21B6)`, border: 'none', borderRadius: 11, color: '#fff', fontWeight: 800, fontSize: 14, cursor: product.stock === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: product.stock === 0 ? 0.4 : 1 }}>
-                Add to Cart
-              </button>
+             <button
+  onClick={onAddToCart}
+  disabled={product.stock === 0}
+  style={{
+    flex: 1,
+    padding: '12px',
+    background: `linear-gradient(135deg, ${T.violet}, #5B21B6)`,
+    border: 'none',
+    borderRadius: 11,
+    color: '#fff',
+    fontWeight: 800,
+    fontSize: 14,
+    cursor: product.stock === 0 ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit',
+    opacity: product.stock === 0 ? 0.4 : 1
+  }}
+>
+  Add to Cart
+</button>
               <button onClick={onWishlist}
                 style={{ width: 46, height: 46, border: `1.5px solid ${wishlisted ? '#FCA5A5' : T.border}`, borderRadius: 11, background: wishlisted ? T.redSoft : T.surface, color: wishlisted ? T.red : T.faint, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>♥</button>
             </div>

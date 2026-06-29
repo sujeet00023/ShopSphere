@@ -1,12 +1,12 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import apiClient from '../../../utils/api'
 import { useCartStore } from '../../../store/cartStore'
 import { useAuthStore } from '../../../store/authStore'
 import toast from 'react-hot-toast'
-
 /* ✅ FIX: Field is defined OUTSIDE CheckoutPage so it is never re-created
    on re-render. When defined inside, React treats it as a new component
    type every render → unmounts + remounts the input → focus lost. */
@@ -22,8 +22,16 @@ function Field({ label, children, span }) {
 export default function CheckoutPage() {
   const router = useRouter()
   const { user } = useAuthStore()
-  const { items, getTotals, clearCart } = useCartStore()
-  const { total, subtotal, tax } = getTotals()
+  const [cartItems, setCartItems] = useState([])
+const [cartSummary, setCartSummary] = useState({
+  subtotal: 0,
+  itemCount: 0
+})
+ 
+  
+const subtotal = cartSummary.subtotal
+const tax = subtotal * 0.1
+const total = subtotal + tax
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
 
@@ -49,21 +57,41 @@ export default function CheckoutPage() {
   const updForm    = (key) => (e) => setFormData(prev    => ({ ...prev, [key]: e.target.value }))
   const updPayment = (key) => (e) => setPaymentData(prev => ({ ...prev, [key]: e.target.value }))
 
-  if (items.length === 0) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+  const fetchCart = async () => {
+  try {
+    const { data } = await apiClient.get('/cart')
+
+    setCartItems(data.data)
+
+    setCartSummary({
+      subtotal: data.subtotal,
+      itemCount: data.itemCount
+    })
+
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+useEffect(() => {
+    fetchCart()
+}, [])
+
+if (cartItems === 0) return (
+  <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 56, marginBottom: 8 }}>🛒</div>
-      <div className="serif" style={{ fontSize: 32, fontWeight: 900 }}>Your cart is empty</div>
+    <div className="serif" style={{ fontSize: 32, fontWeight: 900 }}>Your cart is empty</div>
       <p style={{ color: 'var(--fog)', fontSize: 16, marginBottom: 8 }}>Add some items before checking out.</p>
       <a href="/pages/cart" style={{ fontSize: 15, fontWeight: 700, color: 'var(--sky)', textDecoration: 'none' }}>← Back to Cart</a>
-    </div>
-  )
+  </div>
+)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
     try {
       const { data } = await apiClient.post('/orders', {
-        items: items.map(item => ({
+        items: cartItems.map(item => ({
           productId: item.productId ?? item.id,
           quantity:  item.quantity,
           price:     item.product?.price ?? item.price,
@@ -73,7 +101,7 @@ export default function CheckoutPage() {
       const orderId = data.data[0].id
       await apiClient.post('/stripe/create-payment-intent', { orderId })
       toast.success('Order placed successfully!')
-      clearCart()
+      await fetchCart()
       router.push(`/pages/orders/${orderId}`)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Checkout failed')
@@ -318,17 +346,17 @@ export default function CheckoutPage() {
                     >
                       ← Back
                     </button>
-                    <button
+                   <button
                       type="submit"
-                      disabled={loading}
-                      className="submit-btn"
-                      style={{ flex: 1 }}
-                    >
+                    disabled={loading}
+                     className="submit-btn"
+                    style={{ flex: 1 }}
+                   >
                       {loading
                         ? <><span className="spinner-sm" /> Processing…</>
                         : `Place Order · ₹${total.toFixed(2)}`
                       }
-                    </button>
+                  </button>
                   </div>
                 </div>
               )}
@@ -340,7 +368,7 @@ export default function CheckoutPage() {
 
               {/* Items */}
               <div style={{ marginBottom: 16 }}>
-                {items.map(item => {
+                {cartItems.map(item => {
                   const name  = item.product?.name      ?? item.name      ?? '—'
                   const thumb = item.product?.thumbnail ?? item.thumbnail ?? null
                   const price = item.product?.price     ?? item.price     ?? 0

@@ -117,24 +117,31 @@ export default function ProductGrid({ products = [], loading }) {
    * 2. addToCart(product, 1) — syncs local Zustand store so CartPage sees it
    * Both must happen together.
    */
-  async function handleAddToCart(product) {
+const handleAddToCart = async () => {
   try {
+    // Save to database
     await apiClient.post('/cart', {
       productId: product.id,
-      quantity: 1,
+      quantity,
     })
 
-    // notify navbar and cart page
+    // Update Zustand so Navbar/Cart update immediately
+    addToCart(product, quantity)
+
+    // Notify other components
     window.dispatchEvent(new Event('cartUpdated'))
 
-    toast.success(`${product.name} added to cart`)
+    toast.success(
+      `Added ${quantity} item${quantity > 1 ? 's' : ''} to cart!`
+    )
+
+    setQuantity(1)
   } catch (err) {
     toast.error(
       err.response?.data?.message || 'Failed to add to cart'
     )
   }
 }
-
   if (loading) {
     return (
       <div className="product-grid">
