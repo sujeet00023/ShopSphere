@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import apiClient from '../utils/api'
 import toast from 'react-hot-toast'
+import { useCartStore } from '../store/cartStore'
 
 /* ── helpers ── */
 const fmtINR = n => `₹${Number(n).toLocaleString('en-IN')}`
@@ -117,25 +118,23 @@ export default function ProductGrid({ products = [], loading }) {
    * 2. addToCart(product, 1) — syncs local Zustand store so CartPage sees it
    * Both must happen together.
    */
-const handleAddToCart = async () => {
+const { addToCart } = useCartStore()
+
+const handleAddToCart = async (product) => {
   try {
     // Save to database
     await apiClient.post('/cart', {
       productId: product.id,
-      quantity,
+      quantity: 1,
     })
 
-    // Update Zustand so Navbar/Cart update immediately
-    addToCart(product, quantity)
+    // update Zustand
+    addToCart(product, 1)
 
     // Notify other components
     window.dispatchEvent(new Event('cartUpdated'))
 
-    toast.success(
-      `Added ${quantity} item${quantity > 1 ? 's' : ''} to cart!`
-    )
-
-    setQuantity(1)
+    toast.success('Added to cart!')
   } catch (err) {
     toast.error(
       err.response?.data?.message || 'Failed to add to cart'
