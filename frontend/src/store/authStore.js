@@ -55,17 +55,23 @@ export const useAuthStore = create(
 
       clearError: () => set({ error: null }),
     }),
-    {
-      name: 'auth-store',
+   {
+  name: 'auth-store',
 
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-      }),
+  partialize: (state) => ({
+    user: state.user,
+    token: state.token,
+  }),
 
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true)
-      },
+  onRehydrateStorage: () => (state, error) => {
+    if (error) {
+      console.log('Hydration failed', error)
     }
+
+    if (state) {
+      state.setHydrated(true)
+    }
+  },
+}
   )
 )

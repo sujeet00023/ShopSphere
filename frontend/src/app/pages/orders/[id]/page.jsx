@@ -1,3 +1,6 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/immutability */
 'use client'
 
@@ -23,14 +26,15 @@ const STEP_ORDER = STEPS.map(s => s.status)
 export default function OrderDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const { user } = useAuthStore()
+  const { user,  hydrated  } = useAuthStore()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!hydrated) return
     if (!user) { router.push('/pages/auth/login'); return }
     fetchOrder()
-  }, [user, params.id])
+  }, [hydrated , user , params.id])
 
   async function fetchOrder() {
     try {
@@ -43,16 +47,27 @@ export default function OrderDetailPage() {
       setLoading(false)
     }
   }
+async function handleDownloadInvoice() {
+  try {
+    const response = await apiClient.get(
+      `/invoices/${order.id}/download`,
+      { responseType: 'blob' }
+    )
 
-  async function handleDownloadInvoice() {
-    try {
-      const { data } = await apiClient.get(`/invoice/${order.id}/download`)
-      localStorage.setItem('invoiceData', JSON.stringify(data.data))
-      window.open(`/pages/invoice/${order.id}`, '_blank')
-    } catch {
-      toast.error('Failed to download invoice')
-    }
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `invoice-${order.orderNumber}.pdf`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    toast.error('Failed to download invoice')
   }
+}
 
   if (loading) return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
