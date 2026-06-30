@@ -5,7 +5,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import apiClient from '../../../utils/api'
-import ProductGrid from '../../../components/ProductGrid'
 import toast from 'react-hot-toast'
 
 // ── Design tokens (light theme) ──────────────────────────────────────────────
