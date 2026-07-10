@@ -1,7 +1,8 @@
 import { PaymentStatus, PrismaClient } from "@prisma/client";
 import { authMiddleware, requireRole } from "../middleware/auth.js";
 import express from 'express'
-import puppeteer from 'puppeteer'
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 const router = express.Router()
 const prisma = new PrismaClient()
 
@@ -70,10 +71,12 @@ router.get('/:orderId/download', authMiddleware, async (req, res) => {
     const html = generateInvoiceHTML(order)
 
     // 🧠 Create PDF
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    })
+   const browser = await puppeteer.launch({
+  args: chromium.args,
+  defaultViewport: chromium.defaultViewport,
+  executablePath: await chromium.executablePath(),
+  headless: chromium.headless,
+});
 
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle0' })
