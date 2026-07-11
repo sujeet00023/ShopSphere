@@ -218,4 +218,86 @@ router.patch('/:id/status', authMiddleware, requireRole('SELLER', 'ADMIN'), asyn
   }
 })
 
+// ── PATCH /api/orders/:id/cancel (Customer cancels own order) ─────────────
+router.patch('/:id/cancel', authMiddleware, async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: true,
+      },
+    })
+
+    if (!order) {
+      return res.status(404).json({
+        message: 'Order not found.',
+      })
+    }
+
+    // Only the customer who placed the order can cancel it
+    if (order.customerId !== req.user.id) {
+      return res.status(403).json({
+        message: 'Unauthorized.',
+      })
+    }
+
+    // Only allow cancellation before shipping
+    const cancellableStatuses = [
+      'PENDING',
+      'CONFIRMED',
+      'PROCESSING',
+    ]
+
+    if (!cancellableStatuses.includes(order.status)) {
+      return res.status(400).json({
+        message: 'This order cannot be cancelled.',
+      })
+    }
+
+    // Update order status
+  const updatedOrder = await prisma.order.update({
+  where: { id: req.params.id },
+  data: {
+    status: 'CANCELLED',
+    cancelledAt: new Date(),
+
+    refundStatus: 'REQUESTED',
+    refundAmount: order.total,
+    refundRequestedAt: new Date()
+  },
+  include: {
+    items: true,
+  },
+})
+
+    // Restore stock
+    for (const item of order.items) {
+      await prisma.product.update({
+        where: {
+          id: item.productId,
+        },
+        data: {
+          stock: {
+            increment: item.quantity,
+          },
+          sold: {
+            decrement: item.quantity,
+          },
+        },
+      })
+    }
+
+    res.json({
+      message: 'Order cancelled successfully.',
+      data: updatedOrder,
+    })
+  } catch (err) {
+  console.error(err)
+
+  res.status(500).json({
+    message: err.message
+  })
+}
+})
+
 export default router

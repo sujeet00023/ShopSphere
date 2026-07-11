@@ -168,24 +168,67 @@ router.get('/orders', authMiddleware, requireRole('SELLER'), async (req, res) =>
     if (!seller) {
       return res.status(404).json({ message: 'Seller profile not found.' })
     }
-
-    const { page = 1, limit = 20, status } = req.query
+const {
+  page = 1,
+  limit = 20,
+  status,
+  cancelled,
+  refundStatus
+} = req.query
 
     const skip = (parseInt(page) - 1) * parseInt(limit)
     const where = { sellerId: seller.id }
 
-    if (status) where.status = status
+    // Orders tab
+if (cancelled === 'false') {
+  where.status = {
+    not: 'CANCELLED'
+  }
+}
 
+// Cancelled tab
+if (cancelled === 'true') {
+  where.status = 'CANCELLED'
+}
+
+// Status filter
+if (status) {
+  where.status = status
+}
+
+// Refund filter
+if (refundStatus) {
+  where.refundStatus = refundStatus
+}
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
         skip,
         take: parseInt(limit),
         include: {
-          customer: { select: { name: true, email: true, phone: true } },
-          items: { include: { product: { select: { name: true, thumbnail: true } } } },
-          shipping: true,
-        },
+    customer: {
+        select: {
+            name: true,
+            email: true,
+            phone: true
+        }
+    },
+
+    items: {
+        include: {
+            product: {
+                select: {
+                    name: true,
+                    thumbnail: true
+                }
+            }
+        }
+    },
+
+    shipping: true,
+
+    refundHistory: true
+},
         orderBy: { createdAt: 'desc' },
       }),
       prisma.order.count({ where }),
@@ -235,6 +278,74 @@ router.patch('/orders/:id/status', authMiddleware, requireRole('SELLER'), async 
     res.status(500).json({ message: 'Failed to update order.' })
   }
 })
+
+
+// GET /api/seller/returns
+router.get('/returns',authMiddleware,requireRole('SELLER'),async (req, res) => {
+    try {
+      const seller = await prisma.sellerProfile.findUnique({
+        where: {
+          userId: req.user.id
+        }
+      })
+
+      if (!seller) {
+        return res.status(404).json({
+          message: 'Seller profile not found.'
+        })
+      }
+
+      const returns = await prisma.order.findMany({
+        where: {
+          sellerId: seller.id,
+          OR: [
+            {
+              status: 'RETURNED'
+            },
+            {
+              refundStatus: {
+                not: 'NONE'
+              }
+            }
+          ]
+        },
+        include: {
+          customer: {
+            select: {
+              name: true,
+              email: true,
+              phone: true
+            }
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                  thumbnail: true
+                }
+              }
+            }
+          },
+          shipping: true,
+          refundHistory: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+
+      res.json({
+       data: returns
+      })
+    } catch (err) {
+      console.error(err)
+      res.status(500).json({
+        message: 'Failed to fetch returns.'
+      })
+    }
+  }
+)
 
 // GET /api/seller/reviews (seller's product reviews)
 router.get('/reviews', authMiddleware, requireRole('SELLER'), async (req, res) => {

@@ -25,15 +25,18 @@ apiClient.interceptors.request.use((config) => {
 
 // Handle errors
 apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  response => response,
+
+  error => {
+
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        window.location.href = '/pages/auth/login'
-      }
-    }
+  console.log("401 Unauthorized:", error.config?.url)
+
+  localStorage.removeItem('authToken')
+
+  // ❌ Do NOT redirect here
+}
+
     return Promise.reject(error)
   }
 )
