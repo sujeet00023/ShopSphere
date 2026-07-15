@@ -1,7 +1,6 @@
-/* eslint-disable react-hooks/immutability */
-/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @next/next/no-img-element */
 'use client'
-
+/* eslint-disable react-hooks/immutability */
 import { useEffect, useState } from 'react'
 import apiClient from '../../../../utils/api'
 import {
@@ -86,19 +85,23 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
               <span className="text-sm font-medium text-gray-900">Order #{order.orderNumber}</span>
               <span className="text-sm font-bold text-primary">₹{order.total.toLocaleString('en-IN')}</span>
             </div>
+            <p className="text-xs text-gray-500 mt-2">Customer: {order.customer?.name}</p>
           </div>
 
           {/* Refund amount */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">Refund Amount</label>
-            <input
-              type="number"
-              value={refundAmount}
-              onChange={(e) => setRefundAmount(parseFloat(e.target.value))}
-              max={order.total}
-              step="0.01"
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary transition text-sm"
-            />
+            <div className="flex gap-2">
+              <span className="text-lg font-bold text-primary">₹</span>
+              <input
+                type="number"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(parseFloat(e.target.value))}
+                max={order.total}
+                step="0.01"
+                className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-primary transition text-sm"
+              />
+            </div>
             <p className="text-xs text-gray-500 mt-1">Max: ₹{order.total.toLocaleString('en-IN')}</p>
           </div>
 
@@ -152,6 +155,138 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
   )
 }
 
+/* ─── ORDER DETAILS MODAL ──────────────────────────────────────────── */
+function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
+  if (!isOpen || !order) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-primary to-accent text-white p-6 flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold">Order Details</h2>
+            <p className="text-white/80">Order #{order.orderNumber}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-2xl hover:scale-110 transition"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          
+          {/* Customer Info */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-bold text-gray-900 mb-3">Customer Information</h3>
+            <div className="space-y-2">
+              <p className="text-sm"><span className="font-semibold text-gray-700">Name:</span> {order.customer?.name}</p>
+              <p className="text-sm"><span className="font-semibold text-gray-700">Email:</span> {order.customer?.email}</p>
+              <p className="text-sm"><span className="font-semibold text-gray-700">Phone:</span> {order.customer?.phone || 'N/A'}</p>
+            </div>
+          </div>
+
+          {/* Order Status */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Order Date</p>
+                <p className="text-sm font-medium text-gray-900">{new Date(order.createdAt).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                  order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                  order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
+                  order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {order.status}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div>
+            <h3 className="font-bold text-gray-900 mb-3">Order Items</h3>
+            <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+              {order.items?.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                  <div>
+                    <p className="font-medium text-gray-900">{item.productName}</p>
+                    <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                  </div>
+                  <p className="font-semibold text-gray-900">₹{(item.price * item.quantity).toLocaleString('en-IN')}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Subtotal</span>
+              <span className="font-medium text-gray-900">₹{order.subtotal?.toLocaleString('en-IN') || order.total?.toLocaleString('en-IN')}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Shipping</span>
+              <span className="font-medium text-gray-900">₹{order.shipping || 0}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200 pt-2">
+              <span className="font-bold text-gray-900">Total</span>
+              <span className="font-bold text-primary text-lg">₹{order.total?.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+
+          {/* Refund Info */}
+          {order.refundStatus && order.refundStatus !== 'NONE' && order.refundStatus !== 'PENDING_REFUND' && (
+            <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+              <p className="text-xs font-semibold text-green-900 uppercase mb-2">Refund Status</p>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-green-900 font-medium">
+                  {order.refundStatus === 'RETURN_REQUESTED' && '🔄 Return Requested'}
+                  {order.refundStatus === 'RETURN_APPROVED' && '✓ Return Approved'}
+                  {order.refundStatus === 'RETURN_REJECTED' && '✗ Return Rejected'}
+                  {order.refundStatus === 'REFUND_COMPLETED' && '💰 Refund Completed'}
+                </span>
+                {order.refundedAmount && (
+                  <span className="text-sm font-bold text-green-600">₹{order.refundedAmount.toLocaleString('en-IN')}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Add this block after the Refund Info section */}
+{order.status === 'CANCELLED' && order.refundStatus === 'PENDING_REFUND' && (
+  <button
+    onClick={() => {
+      onClose(); // close details modal
+      setRefundModal({ isOpen: true, order }); // open refund modal
+    }}
+    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 mt-4"
+  >
+    💰 Process Refund Now
+  </button>
+)}
+
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:opacity-90 transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── RETURN STATUS BADGE ──────────────────────────────────────────── */
 function ReturnStatusBadge({ status }) {
   const statusMap = {
@@ -179,6 +314,8 @@ export default function SellerDashboard() {
   const [actionModal, setActionModal] = useState({ isOpen: false, returnId: null, action: null })
   const [refundModal, setRefundModal] = useState({ isOpen: false, order: null })
   const [refundLoading, setRefundLoading] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [showOrderDetails, setShowOrderDetails] = useState(false)
 
   useEffect(() => { fetchDashboard() }, [])
 
@@ -205,7 +342,7 @@ export default function SellerDashboard() {
         reason,
         notes
       })
-      toast.success('Refund processed successfully')
+      toast.success('Refund processed successfully & added to user wallet')
       setRefundModal({ isOpen: false, order: null })
       fetchDashboard()
     } catch (error) {
@@ -244,14 +381,12 @@ export default function SellerDashboard() {
 
       {/* ── Sidebar ── */}
       <aside className="w-[220px] bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen shrink-0">
-        {/* Logo */}
         <div className="px-5 py-5 border-b border-gray-100">
           <span className="text-lg font-bold tracking-tight text-gray-900">
             sell<span className="text-primary">hub</span>
           </span>
         </div>
 
-        {/* Store chip */}
         <div className="mx-3 mt-3 bg-blue-50 rounded-xl px-3 py-2.5 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold shrink-0">
             {dashboard.store.name.slice(0, 2).toUpperCase()}
@@ -264,7 +399,6 @@ export default function SellerDashboard() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-2 py-4 space-y-0.5">
           <p className="text-[10px] font-semibold tracking-widest text-gray-300 uppercase px-2 pb-1">Main</p>
           {navItems.map(item => (
@@ -283,7 +417,6 @@ export default function SellerDashboard() {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-semibold text-primary">
@@ -319,14 +452,22 @@ export default function SellerDashboard() {
         <div className="p-7 flex flex-col gap-5 overflow-y-auto">
           {activeSection === 'overview'  && <OverviewSection  dashboard={dashboard} />}
           {activeSection === 'products' && <ProductsSection />}
-          {activeSection === 'orders'    && <OrdersSection />}
-          {activeSection === 'cancelled' && <CancelledOrdersSection setRefundModal={setRefundModal} />}
+          {activeSection === 'orders'    && <OrdersSection setSelectedOrder={setSelectedOrder} setShowOrderDetails={setShowOrderDetails} />}
+          {activeSection === 'cancelled' && <CancelledOrdersSection setRefundModal={setRefundModal} setSelectedOrder={setSelectedOrder} setShowOrderDetails={setShowOrderDetails} />}
           {activeSection === 'inventory' && <InventorySection />}
           {activeSection === 'returns' && <ReturnsSection actionModal={actionModal} setActionModal={setActionModal} fetchDashboard={fetchDashboard} />}
           {activeSection === 'analytics' && <AnalyticsSection analytics={analytics} />}
           {activeSection === 'reviews'   && <ReviewsSection />}
         </div>
       </div>
+
+      {/* Order Details Modal */}
+     <OrderDetailsModal
+     isOpen={showOrderDetails}
+     order={selectedOrder}
+     onClose={() => setShowOrderDetails(false)}
+     setRefundModal={setRefundModal}   // ← Add this
+/>
 
       {/* Action Modal */}
       <ConfirmationModal
@@ -335,7 +476,7 @@ export default function SellerDashboard() {
         message={
           actionModal.action === 'approve' ? 'Approve this return request. Customer can now ship the item back.' :
           actionModal.action === 'reject' ? 'Reject this return. Customer will be notified.' :
-          'Process the refund to customer. This action cannot be undone.'
+          'Process the refund to customer wallet. This action cannot be undone.'
         }
         onConfirm={() => handleActionConfirm(actionModal)}
         onCancel={() => setActionModal({ isOpen: false, returnId: null, action: null })}
@@ -489,7 +630,7 @@ function ProductsSection() {
 }
 
 /* ─── ORDERS SECTION ──────────────────────────────────────────── */
-function OrdersSection() {
+function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter]   = useState('all')
@@ -559,7 +700,7 @@ function OrdersSection() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                {['Order ID', 'Customer', 'Items', 'Total', 'Status', 'Action'].map(h => (
+                {['Order ID', 'Customer', 'Items', 'Total', 'Status', 'Actions'].map(h => (
                   <th key={h} className="px-5 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
                     {h}
                   </th>
@@ -590,11 +731,20 @@ function OrdersSection() {
                       {order.status}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order)
+                        setShowOrderDetails(true)
+                      }}
+                      className="text-[12px] px-2 py-1 text-primary border border-primary rounded hover:bg-blue-50 transition font-semibold"
+                    >
+                      View
+                    </button>
                     <select
                       value={order.status}
                       onChange={e => updateStatus(order.id, e.target.value)}
-                      className="text-[12px] px-2 py-1.5 border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:border-primary transition-all bg-white"
+                      className="text-[12px] px-2 py-1 border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:border-primary transition-all bg-white"
                     >
                       {['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'].map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -611,8 +761,8 @@ function OrdersSection() {
   )
 }
 
-/* ─── CANCELLED ORDERS SECTION (NEW) ──────────────────────────────────────────── */
-function CancelledOrdersSection({ setRefundModal }) {
+/* ─── CANCELLED ORDERS SECTION ──────────────────────────────────────────── */
+function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrderDetails }) {
   const [cancelledOrders, setCancelledOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -772,11 +922,13 @@ function CancelledOrdersSection({ setRefundModal }) {
                   </>
                 )}
 
-                <button className="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-blue-50 transition">
-                  💬 Contact Customer
-                </button>
-
-                <button className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <button
+                  onClick={() => {
+                    setSelectedOrder(order)
+                    setShowOrderDetails(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                >
                   📋 View Details
                 </button>
               </div>
@@ -908,23 +1060,36 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-gray-200 mb-4">
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Reason</p>
-                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.reason}</p>
+                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.reason || 'Not specified'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Product</p>
-                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.productname}</p>
+                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.productName}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Refund Amount</p>
-                  <p className="text-sm font-bold text-primary mt-1">₹{ret.refundAmount.toLocaleString('en-IN')}</p>
+                  <p className="text-sm font-bold text-primary mt-1">₹{ret.refundAmount?.toLocaleString('en-IN') || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Customer</p>
-                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.customer.name}</p>
+                  <p className="text-sm text-gray-900 font-medium mt-1">{ret.customer?.name}</p>
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Items (if available) */}
+              {ret.items && ret.items.length > 0 && (
+                <div className="mb-4 pb-4 border-b border-gray-200">
+                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Items</p>
+                  <div className="space-y-1">
+                    {ret.items.map((item, idx) => (
+                      <div key={idx} className="text-sm bg-gray-50 p-2 rounded">
+                        {item.productName} × {item.quantity}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2 flex-wrap">
                 {ret.status === 'RETURN_REQUESTED' && (
                   <>
@@ -953,16 +1118,19 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
                 )}
 
                 {(ret.status === 'RETURN_REJECTED' || ret.status === 'REFUND_COMPLETED') && (
-                  <button
-                    disabled
-                    className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-600 rounded-lg cursor-default"
-                  >
+                  <button disabled className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-600 rounded-lg cursor-default">
                     {ret.status === 'RETURN_REJECTED' ? '✗ Rejected' : '✓ Refunded'}
                   </button>
                 )}
 
-                <button className="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-blue-50 transition">
-                  💬 Contact Customer
+                <button
+                  onClick={() => {
+                    setSelectedOrder(ret)  // Reuse the same modal
+                    setShowOrderDetails(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                >
+                  📋 View Full Details
                 </button>
               </div>
             </div>
@@ -981,7 +1149,6 @@ function AnalyticsSection({ analytics }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         {[
           { label: 'Total Products', value: analytics.products ?? 0 },

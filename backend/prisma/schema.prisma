@@ -34,6 +34,10 @@ model User {
   sellerProfile SellerProfile?
   cart          CartItem[]
 
+  // NEW: Wallet Relations
+  wallet             Wallet?
+  walletTransactions WalletTransaction[]
+
   @@index([email])
   @@index([role])
 }
@@ -269,11 +273,12 @@ enum PaymentStatus {
 
 enum RefundStatus {
   NONE
-  REQUESTED
-  PROCESSING
-  APPROVED
-  REJECTED
-  REFUNDED
+  REQUESTED // Customer requested refund
+  PROCESSING // Under review
+  APPROVED // Approved, waiting for completion
+  REJECTED // Rejected
+  REFUND_PROCESSED // Seller processed (recommended)
+  REFUNDED // Money returned to customer
 }
 
 // ── Order Item Model ──────────────────────────────────────────────────────
@@ -362,4 +367,27 @@ model Coupon {
 enum DiscountType {
   PERCENTAGE
   FIXED
+}
+
+model Wallet {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id])
+  balance      Float               @default(0)
+  transactions WalletTransaction[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  amount      Float
+  type        String // 'CREDIT', 'DEBIT'
+  description String
+  orderId     String?
+  createdAt   DateTime @default(now())
 }

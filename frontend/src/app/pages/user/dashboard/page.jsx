@@ -16,32 +16,18 @@ function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, confir
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
-        <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mt-6 ${
-          isDanger ? 'bg-red-100' : 'bg-blue-100'
-        }`}>
+        <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mt-6 ${isDanger ? 'bg-red-100' : 'bg-blue-100'}`}>
           <span className="text-2xl">{isDanger ? '❌' : '❓'}</span>
         </div>
-
         <div className="p-6 text-center">
           <h2 className="text-lg font-bold text-gray-900 mb-2">{title}</h2>
           <p className="text-sm text-gray-500 leading-relaxed">{message}</p>
         </div>
-
         <div className="px-6 pb-6 flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm"
-          >
+          <button onClick={onCancel} className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all text-sm">
             {cancelText}
           </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-all text-sm ${
-              isDanger
-                ? 'bg-red-600 hover:bg-red-700 active:scale-95'
-                : 'bg-primary hover:opacity-90 active:scale-95'
-            }`}
-          >
+          <button onClick={onConfirm} className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-all text-sm ${isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:opacity-90'}`}>
             {confirmText}
           </button>
         </div>
@@ -308,6 +294,8 @@ export default function UserDashboardPage() {
             <p className="text-xs text-gray-500 mt-4">All purchases combined</p>
           </div>
 
+          
+
           {/* Wishlist Items */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition">
             <div className="flex justify-between items-start">
@@ -335,7 +323,7 @@ export default function UserDashboardPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8 border-b border-gray-200 overflow-x-auto">
-          {['overview', 'orders', 'wishlist', 'addresses', 'profile'].map(tab => (
+          {['overview', 'orders', 'wishlist','wallet', 'addresses', 'profile'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -347,6 +335,7 @@ export default function UserDashboardPage() {
             >
               {tab === 'overview' && '📊 Overview'}
               {tab === 'orders' && '📦 Orders'}
+              {tab === 'wallet' && '💰 Wallet'}
               {tab === 'wishlist' && '❤️ Wishlist'}
               {tab === 'addresses' && '🏠 Addresses'}
               {tab === 'profile' && '👤 Profile'}
@@ -525,6 +514,39 @@ export default function UserDashboardPage() {
                   Browse products →
                 </Link>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* WALLET TAB - NEW */}
+        {activeTab === 'wallet' && (
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold mb-6">My Wallet</h2>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 mb-8 text-center">
+              <p className="text-gray-600">Available Balance</p>
+              <p className="text-6xl font-bold text-emerald-600 mt-3">
+                ₹{(dashboard?.wallet?.balance || 0).toLocaleString('en-IN')}
+              </p>
+            </div>
+
+            <h3 className="font-semibold text-lg mb-4">Recent Transactions</h3>
+            {dashboard?.wallet?.transactions?.length > 0 ? (
+              <div className="space-y-3">
+                {dashboard.wallet.transactions.map((tx, i) => (
+                  <div key={i} className="flex justify-between items-center p-4 border border-gray-100 rounded-lg">
+                    <div>
+                      <p className="font-medium">{tx.description}</p>
+                      <p className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <p className={`font-bold ${tx.type === 'CREDIT' ? 'text-green-600' : 'text-red-600'}`}>
+                      {tx.type === 'CREDIT' ? '+' : ''}₹{tx.amount}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 py-12 text-center">No transactions yet</p>
             )}
           </div>
         )}

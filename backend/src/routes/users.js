@@ -10,82 +10,70 @@ const prisma = new PrismaClient()
 router.get('/dashboard', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id
- 
-    // Fetch all data in parallel
+
     const [
       orders,
       wishlist,
       addresses,
       profile,
+      wallet
     ] = await Promise.all([
       prisma.order.findMany({
         where: { customerId: userId },
         include: {
-          items: {
-            include: { product: { select: { name: true, price: true, thumbnail: true } } }
-          }
+          items: { include: { product: { select: { name: true, price: true, thumbnail: true } } } }
         },
         orderBy: { createdAt: 'desc' }
       }),
- 
+
       prisma.wishlistItem.findMany({
-  where: { userId },
-  include: {
-    product: {
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        thumbnail: true
-      }
-    }
-  }
-}),
-      prisma.address.findMany({
-  where: { userId }
-}),
- 
+        where: { userId },
+        include: { product: { select: { id: true, name: true, price: true, thumbnail: true } } }
+      }),
+
+      prisma.address.findMany({ where: { userId } }),
+
       prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, name: true, email: true, createdAt: true }
+      }),
+
+      prisma.wallet.findUnique({
+        where: { userId },
+        include: {
+          transactions: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          }
+        }
       })
     ])
- 
-    // Calculate stats
+
+    // Create wallet if not exists
+    let userWallet = wallet
+    if (!userWallet) {
+      userWallet = await prisma.wallet.create({
+        data: { userId, balance: 0 },
+        include: { transactions: true }
+      })
+    }
+
     const totalOrders = orders.length
     const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0)
     const pendingOrders = orders.filter(o => !['DELIVERED', 'CANCELLED'].includes(o.status)).length
     const wishlistCount = wishlist.length
- 
-    // Format recent orders (last 5)
+
     const recentOrders = orders.slice(0, 5).map(order => ({
       id: order.id,
+      orderNumber: order.orderNumber,
       createdAt: order.createdAt,
       total: order.total,
       status: order.status,
+      refundStatus: order.refundStatus,
+      refundedAmount: order.refundedAmount
+      
     }))
- 
-    // Format wishlist items
-    const formattedWishlist = wishlist.map(item => ({
-      id: item.id,
-      productId: item.productId,
-      productName: item.product.name,
-      price: item.product.price,
-      productImage: item.product.thumbnail,
-    }))
- 
-    // Format addresses
-  const formattedAddresses = addresses.map(addr => ({
-  id: addr.id,
-  fullName: addr.fullName,
-  street: addr.street,
-  city: addr.city,
-  state: addr.state,
-  zipCode: addr.zipCode,
-  country: addr.country,
-  phone: addr.phone,
-}))
- 
+
     res.json({
       status: 'success',
       data: {
@@ -98,27 +86,29 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
         recentOrders,
         orders: orders.map(order => ({
           id: order.id,
+          orderNumber: order.orderNumber,
           createdAt: order.createdAt,
           total: order.total,
           status: order.status,
+          refundStatus: order.refundStatus,
+          refundedAmount: order.refundedAmount
         })),
-        wishlist: formattedWishlist,
-        addresses: formattedAddresses,
-        profile: {
-          name: profile.name,
-          email: profile.email,
-          createdAt: profile.createdAt,
-        }
+        wishlist: wishlist.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          productName: item.product.name,
+          price: item.product.price,
+          productImage: item.product.thumbnail,
+        })),
+        addresses,
+        profile,
+        wallet: userWallet
       }
     })
   } catch (err) {
-  console.error('Dashboard Error:', err)
-
-  res.status(500).json({
-    status: 'error',
-    message: err.message
-  })
-}
+    console.error('Dashboard Error:', err)
+    res.status(500).json({ status: 'error', message: 'Failed to load dashboard' })
+  }
 })
 
 
@@ -575,5 +565,51 @@ router.delete('/wishlist/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Failed to remove from wishlist.' })
   }
 })
+
+// GET /api/users/wallet - Get user wallet balance + transactions
+router.get('/wallet', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id
+
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId },
+      include: {
+        transactions: {
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }
+      }
+    })
+
+    if (!wallet) {
+      // Create wallet if not exists
+      const newWallet = await prisma.wallet.create({
+        data: { userId, balance: 0 },
+        include: { transactions: true }
+      })
+      return res.json({ data: newWallet })
+    }
+
+    res.json({ data: wallet })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Failed to fetch wallet' })
+  }
+})
+
+// GET /api/users/wallet/transactions - Get all wallet transactions
+router.get('/wallet/transactions', authMiddleware, async (req, res) => {
+  try {
+    const transactions = await prisma.walletTransaction.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    res.json({ data: transactions })
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch transactions' })
+  }
+})
+
 
 export default router

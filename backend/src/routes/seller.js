@@ -347,6 +347,273 @@ router.get('/returns',authMiddleware,requireRole('SELLER'),async (req, res) => {
   }
 )
 
+// PATCH /api/seller/orders/:id/request-refund
+router.patch('/orders/:id/request-refund',authMiddleware,requireRole('SELLER'),async (req, res) => {
+    try {
+      const seller = await prisma.sellerProfile.findUnique({
+        where: {
+          userId: req.user.id,
+        },
+      })
+
+      if (!seller) {
+        return res.status(404).json({
+          message: 'Seller not found.',
+        })
+      }
+
+      const order = await prisma.order.findUnique({
+        where: {
+          id: req.params.id,
+        },
+      })
+
+      if (!order || order.sellerId !== seller.id) {
+        return res.status(403).json({
+          message: 'Unauthorized.',
+        })
+      }
+
+      if (order.status !== 'CANCELLED') {
+        return res.status(400).json({
+          message: 'Only cancelled orders can be refunded.',
+        })
+      }
+
+      const updated = await prisma.order.update({
+        where: {
+          id: order.id,
+        },
+        data: {
+          refundStatus: 'PROCESSING',
+        },
+      })
+
+      await prisma.refundHistory.create({
+        data: {
+          orderId: order.id,
+          amount: order.total,
+          status: 'PROCESSING',
+          createdBy: seller.userId,
+          remarks: 'Refund initiated by seller',
+        },
+      })
+
+      res.json({
+        message: 'Refund initiated.',
+        data: updated,
+      })
+    } catch (err) {
+      console.error(err)
+      res.status(500).json({
+        message: 'Failed to initiate refund.',
+      })
+    }
+  }
+)
+
+
+// POST /api/seller/orders/:id/process-refund
+router.post('/orders/:id/process-refund', authMiddleware, requireRole('SELLER'), async (req, res) => {
+  try {
+    const { refundAmount, reason, notes } = req.body
+
+    if (!refundAmount || refundAmount <= 0) {
+      return res.status(400).json({ message: 'Valid refund amount is required.' })
+    }
+
+    const seller = await prisma.sellerProfile.findUnique({
+      where: { userId: req.user.id },
+    })
+
+    if (!seller) return res.status(404).json({ message: 'Seller not found.' })
+
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { customer: true }
+    })
+
+    if (!order || order.sellerId !== seller.id) {
+      return res.status(403).json({ message: 'Unauthorized.' })
+    }
+  
+    if (order.status !== 'CANCELLED' && order.status !== 'RETURNED') {
+      return res.status(400).json({ message: 'Only cancelled or returned orders can be refunded.' })
+    }
+
+    if (refundAmount > (order.refundAmount || order.total)) {
+      return res.status(400).json({ message: 'Refund amount exceeds allowed amount.' })
+    }
+
+    // 1. Update Order
+    const updatedOrder = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        refundStatus: 'REFUNDED',
+        refundedAmount: refundAmount,
+        refundedAt: new Date(),
+        paymentStatus: 'REFUNDED',
+      }
+    })
+  
+    // 2. Create Refund History
+    await prisma.refundHistory.create({
+      data: {
+        orderId: order.id,
+        amount: refundAmount,
+        status: 'REFUNDED',
+        remarks: notes || reason || 'Refund processed by seller',
+        createdBy: seller.userId,
+      }
+    })
+
+    // 3. Credit User's Wallet (Most Important)
+    let wallet = await prisma.wallet.findUnique({
+      where: { userId: order.customerId }
+    })
+
+    if (!wallet) {
+      wallet = await prisma.wallet.create({
+        data: { userId: order.customerId, balance: 0 }
+      })
+    }
+
+    const newBalance = wallet.balance + refundAmount
+
+    await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: newBalance }
+    })
+
+    // 4. Record Wallet Transaction
+    await prisma.walletTransaction.create({
+      data: {
+        userId: order.customerId,
+        walletId: wallet.id,
+        amount: refundAmount,
+        type: 'CREDIT',
+        description: `Refund for Order #${order.orderNumber || order.id}`,
+        orderId: order.id,
+      }
+    })
+
+    res.json({
+      message: 'Refund processed successfully. Amount credited to customer wallet.',
+      data: updatedOrder
+    })
+
+  } catch (err) {
+    console.error('Process Refund Error:', err)
+    res.status(500).json({ message: 'Failed to process refund.' })
+  }
+})
+
+// PATCH /api/seller/orders/:id/approve-refund
+router.patch('/orders/:id/approve-refund',authMiddleware,requireRole('SELLER'),async (req, res) => {
+    try {
+      const seller = await prisma.sellerProfile.findUnique({
+        where: {
+          userId: req.user.id,
+        },
+      })
+
+      const order = await prisma.order.findUnique({
+        where: {
+          id: req.params.id,
+        },
+      })
+
+      if (!order || order.sellerId !== seller.id) {
+        return res.status(403).json({
+          message: 'Unauthorized.',
+        })
+      }
+
+      const updated = await prisma.order.update({
+        where: {
+          id: order.id,
+        },
+        data: {
+          refundStatus: 'APPROVED',
+        },
+      })
+
+      await prisma.refundHistory.create({
+        data: {
+          orderId: order.id,
+          amount: order.total,
+          status: 'APPROVED',
+          createdBy: seller.userId,
+          remarks: 'Refund approved',
+        },
+      })
+
+      res.json({
+        data: updated,
+      })
+    } catch (err) {
+      res.status(500).json({
+        message: 'Failed.',
+      })
+    }
+  }
+)
+
+// PATCH /api/seller/orders/:id/complete-refund
+router.patch('/orders/:id/complete-refund',authMiddleware,requireRole('SELLER'),async (req, res) => {
+    try {
+      const seller = await prisma.sellerProfile.findUnique({
+        where: {
+          userId: req.user.id,
+        },
+      })
+
+      const order = await prisma.order.findUnique({
+        where: {
+          id: req.params.id,
+        },
+      })
+
+      if (!order || order.sellerId !== seller.id) {
+        return res.status(403).json({
+          message: 'Unauthorized.',
+        })
+      }
+
+      const updated = await prisma.order.update({
+        where: {
+          id: order.id,
+        },
+        data: {
+          refundStatus: 'REFUNDED',
+          paymentStatus: 'REFUNDED',
+          refundedAt: new Date(),
+        },
+      })
+
+      await prisma.refundHistory.create({
+        data: {
+          orderId: order.id,
+          amount: order.total,
+          status: 'REFUNDED',
+          createdBy: seller.userId,
+          remarks: 'Refund completed',
+        },
+      })
+
+      res.json({
+        data: updated,
+      })
+    } catch (err) {
+      console.error(err)
+      res.status(500).json({
+        message: 'Failed.',
+      })
+    }
+  }
+)
+
+
 // GET /api/seller/reviews (seller's product reviews)
 router.get('/reviews', authMiddleware, requireRole('SELLER'), async (req, res) => {
   try {
