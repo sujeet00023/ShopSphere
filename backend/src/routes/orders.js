@@ -225,79 +225,86 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
       where: { id: req.params.id },
       include: {
         items: true,
+        customer: true,
       },
     })
 
     if (!order) {
-      return res.status(404).json({
-        message: 'Order not found.',
-      })
+      return res.status(404).json({ message: 'Order not found.' })
     }
 
     // Only the customer who placed the order can cancel it
     if (order.customerId !== req.user.id) {
-      return res.status(403).json({
-        message: 'Unauthorized.',
-      })
+      return res.status(403).json({ message: 'Unauthorized.' })
     }
 
-    // Only allow cancellation before shipping
-    const cancellableStatuses = [
-      'PENDING',
-      'CONFIRMED',
-      'PROCESSING',
-    ]
-
-    if (!cancellableStatuses.includes(order.status)) {
-      return res.status(400).json({
-        message: 'This order cannot be cancelled.',
-      })
+    if (!['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status)) {
+      return res.status(400).json({ message: 'This order cannot be cancelled at this stage.' })
     }
 
-    // Update order status
-  const updatedOrder = await prisma.order.update({
-  where: { id: req.params.id },
-  data: {
-    status: 'CANCELLED',
-    cancelledAt: new Date(),
+    const refundAmount = order.total
 
-    refundStatus: 'REQUESTED',
-    refundAmount: order.total,
-    refundRequestedAt: new Date()
-  },
-  include: {
-    items: true,
-  },
-})
+    // Update Order
+    const updatedOrder = await prisma.order.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        refundStatus: 'REFUNDED',           // Changed
+        refundAmount: refundAmount,
+        refundedAt: new Date(),
+        paymentStatus: 'REFUNDED',
+      },
+      include: { items: true }
+    })
 
-    // Restore stock
+    // Restore Stock
     for (const item of order.items) {
       await prisma.product.update({
-        where: {
-          id: item.productId,
-        },
+        where: { id: item.productId },
         data: {
-          stock: {
-            increment: item.quantity,
-          },
-          sold: {
-            decrement: item.quantity,
-          },
+          stock: { increment: item.quantity },
+          sold: { decrement: item.quantity },
         },
       })
     }
 
+    // Credit Wallet
+    let wallet = await prisma.wallet.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (!wallet) {
+      wallet = await prisma.wallet.create({
+        data: { userId: req.user.id, balance: 0 }
+      })
+    }
+
+    await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: { increment: refundAmount } }
+    })
+
+    // Record Wallet Transaction
+    await prisma.walletTransaction.create({
+      data: {
+        userId: req.user.id,
+        walletId: wallet.id,
+        amount: refundAmount,
+        type: 'CREDIT',
+        description: `Refund for cancelled Order #${order.orderNumber || order.id}`,
+        orderId: order.id,
+      }
+    })
+
     res.json({
-      message: 'Order cancelled successfully.',
-      data: updatedOrder,
+      message: 'Order cancelled successfully. Full amount has been credited to your wallet.',
+      data: updatedOrder
     })
   } catch (err) {
-  console.error(err)
-
-  res.status(500).json({
-    message: err.message
-  })
-}
+    console.error('Cancel Order Error:', err)
+    res.status(500).json({ message: 'Failed to cancel order.' })
+  }
 })
 
 export default router
