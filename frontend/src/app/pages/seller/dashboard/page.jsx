@@ -156,6 +156,7 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
 }
 
 /* ─── ORDER DETAILS MODAL ──────────────────────────────────────────── */
+/* ─── ORDER DETAILS MODAL ──────────────────────────────────────────── */
 function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
   if (!isOpen || !order) return null
 
@@ -168,12 +169,7 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
             <h2 className="text-2xl font-bold">Order Details</h2>
             <p className="text-white/80">Order #{order.orderNumber}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-2xl hover:scale-110 transition"
-          >
-            ✕
-          </button>
+          <button onClick={onClose} className="text-2xl hover:scale-110 transition">✕</button>
         </div>
 
         {/* Content */}
@@ -189,12 +185,32 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
             </div>
           </div>
 
+          {/* Shipping Address */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-bold text-gray-900 mb-3">Shipping Address</h3>
+            <div className="text-sm text-gray-700 space-y-1">
+              {order.shipping ? (
+                <>
+                  <p>{order.shipping.fullName}</p>
+                  <p>{order.shipping.street}</p>
+                  <p>{order.shipping.city}, {order.shipping.state} {order.shipping.zipCode}</p>
+                  <p>{order.shipping.country}</p>
+                  <p>Phone: {order.shipping.phone}</p>
+                </>
+              ) : (
+                <p className="text-gray-500">No shipping address available</p>
+              )}
+            </div>
+          </div>
+
           {/* Order Status */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Order Date</p>
-                <p className="text-sm font-medium text-gray-900">{new Date(order.createdAt).toLocaleDateString()}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {new Date(order.createdAt).toLocaleDateString()}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
@@ -234,7 +250,7 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Shipping</span>
-              <span className="font-medium text-gray-900">₹{order.shipping || 0}</span>
+              <span className="font-medium text-gray-900">₹{order.shippingCost || 0}</span>
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-2">
               <span className="font-bold text-gray-900">Total</span>
@@ -243,7 +259,7 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
           </div>
 
           {/* Refund Info */}
-          {order.refundStatus && order.refundStatus !== 'NONE' && order.refundStatus !== 'PENDING_REFUND' && (
+          {order.refundStatus && order.refundStatus !== 'NONE' && (
             <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
               <p className="text-xs font-semibold text-green-900 uppercase mb-2">Refund Status</p>
               <div className="flex justify-between items-center">
@@ -251,7 +267,7 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
                   {order.refundStatus === 'RETURN_REQUESTED' && '🔄 Return Requested'}
                   {order.refundStatus === 'RETURN_APPROVED' && '✓ Return Approved'}
                   {order.refundStatus === 'RETURN_REJECTED' && '✗ Return Rejected'}
-                  {order.refundStatus === 'REFUND_COMPLETED' && '💰 Refund Completed'}
+                  {order.refundStatus === 'REFUNDED' && '💰 Refund Completed'}
                 </span>
                 {order.refundedAmount && (
                   <span className="text-sm font-bold text-green-600">₹{order.refundedAmount.toLocaleString('en-IN')}</span>
@@ -260,19 +276,18 @@ function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
             </div>
           )}
 
-          {/* Add this block after the Refund Info section */}
-{order.status === 'CANCELLED' && order.refundStatus === 'PENDING_REFUND' && (
-  <button
-    onClick={() => {
-      onClose(); // close details modal
-      setRefundModal({ isOpen: true, order }); // open refund modal
-    }}
-    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 mt-4"
-  >
-    💰 Process Refund Now
-  </button>
-)}
-
+          {/* Process Refund Button for Cancelled Orders */}
+          {order.status === 'CANCELLED' && order.refundStatus === 'PENDING_REFUND' && (
+            <button
+              onClick={() => {
+                onClose();
+                setRefundModal({ isOpen: true, order });
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 mt-4"
+            >
+              💰 Process Refund Now
+            </button>
+          )}
 
           {/* Close Button */}
           <button
@@ -455,7 +470,9 @@ export default function SellerDashboard() {
           {activeSection === 'orders'    && <OrdersSection setSelectedOrder={setSelectedOrder} setShowOrderDetails={setShowOrderDetails} />}
           {activeSection === 'cancelled' && <CancelledOrdersSection setRefundModal={setRefundModal} setSelectedOrder={setSelectedOrder} setShowOrderDetails={setShowOrderDetails} />}
           {activeSection === 'inventory' && <InventorySection />}
-          {activeSection === 'returns' && <ReturnsSection actionModal={actionModal} setActionModal={setActionModal} fetchDashboard={fetchDashboard} />}
+          {activeSection === 'returns' && ( <ReturnsSection actionModal={actionModal} setActionModal={setActionModal} fetchDashboard={fetchDashboard}setSelectedOrder={setSelectedOrder}setShowOrderDetails={setShowOrderDetails}
+  />
+)}
           {activeSection === 'analytics' && <AnalyticsSection analytics={analytics} />}
           {activeSection === 'reviews'   && <ReviewsSection />}
         </div>
@@ -630,6 +647,7 @@ function ProductsSection() {
 }
 
 /* ─── ORDERS SECTION ──────────────────────────────────────────── */
+/* ─── ORDERS SECTION ──────────────────────────────────────────── */
 function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(true)
@@ -640,7 +658,10 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const params = { status: filter !== 'all' ? filter : undefined, cancelled: false }
+      const params = { 
+        status: filter !== 'all' ? filter : undefined, 
+        cancelled: false   // Only show non-cancelled in "Orders" tab
+      }
       const { data } = await apiClient.get('/seller/orders', { params })
       setOrders(data.data)
     } catch {
@@ -653,7 +674,7 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   async function updateStatus(orderId, status) {
     try {
       await apiClient.patch(`/seller/orders/${orderId}/status`, { status })
-      toast.success('Order updated')
+      toast.success('Order status updated')
       fetchOrders()
     } catch {
       toast.error('Failed to update order')
@@ -664,7 +685,6 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition">
-      {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <div>
           <p className="text-[14px] font-semibold text-gray-900">Active Orders</p>
@@ -675,7 +695,6 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
         </button>
       </div>
 
-      {/* Filter pills */}
       <div className="px-6 py-3 border-b border-gray-200 flex gap-2 flex-wrap">
         {statuses.map(s => (
           <button
@@ -687,14 +706,15 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
                 : 'text-gray-500 border-gray-200 hover:border-primary hover:text-primary hover:bg-blue-50'
             }`}
           >
-            {s === 'all' ? 'All Orders' : s}
+            {s === 'all' ? 'All Active Orders' : s}
           </button>
         ))}
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="text-center py-12 text-gray-400 text-sm">Loading orders…</div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">No active orders found</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -717,7 +737,7 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
                     <p className="text-[13px] font-medium text-gray-900">{order.customer.name}</p>
                     <p className="text-[11px] text-gray-400">{order.customer.email}</p>
                   </td>
-                  <td className="px-5 py-3.5 text-[13px] text-gray-600">{order.items.length}</td>
+                  <td className="px-5 py-3.5 text-[13px] text-gray-600">{order.items?.length || 0}</td>
                   <td className="px-5 py-3.5 text-[13px] font-semibold text-gray-900 font-mono">
                     ₹{order.total.toLocaleString('en-IN')}
                   </td>
@@ -726,6 +746,7 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
                       order.status === 'DELIVERED' ? 'bg-green-50 text-green-700' :
                       order.status === 'SHIPPED' ? 'bg-blue-50 text-blue-700' :
                       order.status === 'PROCESSING' ? 'bg-yellow-50 text-yellow-700' :
+                      order.status === 'CANCELLED' ? 'bg-red-50 text-red-700' :
                       'bg-gray-100 text-gray-600'
                     }`}>
                       {order.status}
@@ -788,7 +809,6 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
 
   return (
     <div className="space-y-4">
-      {/* Filter pills */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition">
         <p className="text-[13px] font-semibold text-gray-900 mb-4">Filter Cancelled Orders</p>
         <div className="flex gap-2 flex-wrap">
@@ -808,7 +828,6 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
         </div>
       </div>
 
-      {/* Orders list */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading cancelled orders…</div>
       ) : cancelledOrders.length === 0 ? (
@@ -819,7 +838,6 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
         <div className="space-y-3">
           {cancelledOrders.map(order => (
             <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition">
-              {/* Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="font-bold text-gray-900">Order #{order.orderNumber}</p>
@@ -832,31 +850,34 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                     ❌ Cancelled
                   </span>
                   <span className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                    order.refundStatus === 'REFUND_PROCESSED' ? 'bg-green-50 text-green-700' :
-                    order.refundStatus === 'REFUND_FAILED' ? 'bg-red-50 text-red-700' :
-                    'bg-yellow-50 text-yellow-700'
+                    order.refundStatus === 'REFUND_PROCESSED' || order.refundStatus === 'REFUNDED' 
+                      ? 'bg-green-50 text-green-700' 
+                      : order.refundStatus === 'REFUND_FAILED' 
+                      ? 'bg-red-50 text-red-700' 
+                      : 'bg-yellow-50 text-yellow-700'
                   }`}>
-                    {order.refundStatus === 'REFUND_PROCESSED' ? '💰 Refunded' :
-                     order.refundStatus === 'REFUND_FAILED' ? '❌ Failed' :
-                     '⏳ Pending'}
+                    {order.refundStatus === 'REFUND_PROCESSED' || order.refundStatus === 'REFUNDED' 
+                      ? '💰 Refunded' 
+                      : order.refundStatus === 'REFUND_FAILED' 
+                      ? '❌ Failed' 
+                      : '⏳ Pending'}
                   </span>
                 </div>
               </div>
 
-              {/* Order details */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-gray-200 mb-4">
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Customer</p>
-                  <p className="text-sm text-gray-900 font-medium mt-1">{order.customer.name}</p>
-                  <p className="text-xs text-gray-500">{order.customer.email}</p>
+                  <p className="text-sm text-gray-900 font-medium mt-1">{order.customer?.name}</p>
+                  <p className="text-xs text-gray-500">{order.customer?.email}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Items</p>
-                  <p className="text-sm text-gray-900 font-medium mt-1">{order.items.length} item(s)</p>
+                  <p className="text-sm text-gray-900 font-medium mt-1">{order.items?.length || 0} item(s)</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Order Amount</p>
-                  <p className="text-sm font-bold text-primary mt-1">₹{order.total.toLocaleString('en-IN')}</p>
+                  <p className="text-sm font-bold text-primary mt-1">₹{order.total?.toLocaleString('en-IN')}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Refunded Amount</p>
@@ -866,7 +887,7 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                 </div>
               </div>
 
-              {/* Refund history */}
+              {/* Refund History */}
               {order.refundHistory && order.refundHistory.length > 0 && (
                 <div className="mb-4 pb-4 border-b border-gray-200">
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Refund History</p>
@@ -874,10 +895,10 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                     {order.refundHistory.map((refund, idx) => (
                       <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
                         <p className="font-medium text-gray-900">
-                          ₹{refund.amount.toLocaleString('en-IN')} - {refund.reason}
+                          ₹{refund.amount.toLocaleString('en-IN')} - {refund.reason || 'Refund'}
                         </p>
                         <p className="text-gray-500">
-                          {new Date(refund.processedAt).toLocaleString()} · Status: {refund.status}
+                          {new Date(refund.createdAt || refund.processedAt).toLocaleString()} · Status: {refund.status}
                         </p>
                       </div>
                     ))}
@@ -885,7 +906,6 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                 </div>
               )}
 
-              {/* Actions */}
               <div className="flex gap-2 flex-wrap">
                 {order.refundStatus === 'PENDING_REFUND' && (
                   <button
@@ -896,11 +916,8 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                   </button>
                 )}
 
-                {order.refundStatus === 'REFUND_PROCESSED' && (
-                  <button
-                    disabled
-                    className="px-4 py-2 text-sm font-medium bg-green-50 text-green-700 rounded-lg border border-green-200 cursor-default"
-                  >
+                {(order.refundStatus === 'REFUND_PROCESSED' || order.refundStatus === 'REFUNDED') && (
+                  <button disabled className="px-4 py-2 text-sm font-medium bg-green-50 text-green-700 rounded-lg border border-green-200 cursor-default">
                     ✓ Refund Processed
                   </button>
                 )}
@@ -913,10 +930,7 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                     >
                       🔄 Retry Refund
                     </button>
-                    <button
-                      disabled
-                      className="px-4 py-2 text-sm font-medium bg-red-50 text-red-700 rounded-lg border border-red-200 cursor-default"
-                    >
+                    <button disabled className="px-4 py-2 text-sm font-medium bg-red-50 text-red-700 rounded-lg border border-red-200 cursor-default">
                       ❌ Refund Failed
                     </button>
                   </>
@@ -985,7 +999,14 @@ function InventorySection() {
 }
 
 /* ─── RETURNS SECTION ──────────────────────────────────────────── */
-function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
+/* ─── RETURNS SECTION ──────────────────────────────────────────── */
+function ReturnsSection({ 
+  actionModal, 
+  setActionModal, 
+  fetchDashboard,
+  setSelectedOrder,
+  setShowOrderDetails 
+}) {
   const [returns, setReturns] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -1014,7 +1035,6 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
 
   return (
     <div className="space-y-4">
-      {/* Filter pills */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition">
         <p className="text-[13px] font-semibold text-gray-900 mb-4">Filter Returns</p>
         <div className="flex gap-2 flex-wrap">
@@ -1034,7 +1054,6 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
         </div>
       </div>
 
-      {/* Returns list */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading returns…</div>
       ) : returns.length === 0 ? (
@@ -1045,7 +1064,6 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
         <div className="space-y-3">
           {returns.map(ret => (
             <div key={ret.id} className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition">
-              {/* Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="font-bold text-gray-900">Order #{ret.orderNumber}</p>
@@ -1056,7 +1074,6 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
                 <ReturnStatusBadge status={ret.status} />
               </div>
 
-              {/* Details */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4 border-b border-gray-200 mb-4">
                 <div>
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Reason</p>
@@ -1076,7 +1093,6 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
                 </div>
               </div>
 
-              {/* Items (if available) */}
               {ret.items && ret.items.length > 0 && (
                 <div className="mb-4 pb-4 border-b border-gray-200">
                   <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Items</p>
@@ -1125,7 +1141,7 @@ function ReturnsSection({ actionModal, setActionModal, fetchDashboard }) {
 
                 <button
                   onClick={() => {
-                    setSelectedOrder(ret)  // Reuse the same modal
+                    setSelectedOrder(ret)
                     setShowOrderDetails(true)
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
