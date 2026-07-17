@@ -5,73 +5,50 @@ import { authMiddleware, requireRole } from '../middleware/auth.js'
 const router = express.Router()
 const prisma = new PrismaClient()
 
+
 // ── POST /api/orders (create order from cart) ──────────────────────────────
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { shipping } = req.body
+    const { shipping, useWallet, walletAmount } = req.body
 
-if (!shipping) {
-  return res.status(400).json({
-    message: 'Shipping information is required.'
-  })
-}
-
-    // Get cart items
-const { items } = req.body
-
-if (!items || items.length === 0) {
-  return res.status(400).json({
-    message: 'Cart is empty.'
-  })
-}
-
-    // Verify shipping address belongs to user
-   const address = await prisma.address.create({
-  data: {
-    userId: req.user.id,
-    fullName: shipping.fullName,
-    phone: shipping.phone,
-    street: shipping.street,
-    city: shipping.city,
-    state: shipping.state,
-    zipCode: shipping.zipCode,
-    country: shipping.country,
-  },
-})
-
-    if (!address || address.userId !== req.user.id) {
-      return res.status(400).json({ message: 'Invalid shipping address.' })
+    if (!shipping) {
+      return res.status(400).json({ message: 'Shipping information is required.' })
     }
 
-    const cartItems = await Promise.all(
-  items.map(async (item) => {
-    const product = await prisma.product.findUnique({
-      where: {
-        id: item.productId,
+    const items = req.body.items
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: 'Cart is empty.' })
+    }
+
+    // Create shipping address
+    const address = await prisma.address.create({
+      data: {
+        userId: req.user.id,
+        fullName: shipping.fullName,
+        phone: shipping.phone,
+        street: shipping.street,
+        city: shipping.city,
+        state: shipping.state,
+        zipCode: shipping.zipCode,
+        country: shipping.country,
       },
     })
 
-    return {
-      quantity: item.quantity,
-      product,
-    }
-  })
-)
-
     // Group items by seller
     const bySellerMap = {}
-    cartItems.forEach(item => {
-      if (!bySellerMap[item.product.sellerId]) {
-        bySellerMap[item.product.sellerId] = []
-      }
-      bySellerMap[item.product.sellerId].push(item)
-    })
+    for (const item of items) {
+      const product = await prisma.product.findUnique({ where: { id: item.productId } })
+      if (!product) continue
 
-    // Create orders for each seller
+      if (!bySellerMap[product.sellerId]) bySellerMap[product.sellerId] = []
+      bySellerMap[product.sellerId].push({ ...item, product })
+    }
+
     const orders = []
-    for (const [sellerId, items] of Object.entries(bySellerMap)) {
-      const subtotal = items.reduce((sum, item) => {
-        const price = item.product.price - (item.product.price * (item.product.discountPct / 100))
+
+    for (const [sellerId, sellerItems] of Object.entries(bySellerMap)) {
+      const subtotal = sellerItems.reduce((sum, item) => {
+        const price = item.product.price * (1 - (item.product.discountPct || 0) / 100)
         return sum + price * item.quantity
       }, 0)
 
@@ -87,27 +64,21 @@ if (!items || items.length === 0) {
           tax: parseFloat(tax.toFixed(2)),
           total: parseFloat(total.toFixed(2)),
           items: {
-            create: items.map(item => {
-              const price = item.product.price - (item.product.price * (item.product.discountPct / 100))
-              return {
-                productId: item.product.id,
-                quantity: item.quantity,
-                price,
-                total: price * item.quantity,
-              }
-            }),
+            create: sellerItems.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.product.price * (1 - (item.product.discountPct || 0) / 100),
+              total: (item.product.price * (1 - (item.product.discountPct || 0) / 100)) * item.quantity,
+            })),
           },
         },
-        include: {
-          items: { include: { product: true } },
-          customer: { select: { name: true, email: true } },
-        },
+        include: { items: true }
       })
 
-      // Update product stock
-      for (const item of items) {
+      // Restore stock (only if not using wallet? No, always restore on order)
+      for (const item of sellerItems) {
         await prisma.product.update({
-          where: { id: item.product.id },
+          where: { id: item.productId },
           data: {
             stock: { decrement: item.quantity },
             sold: { increment: item.quantity },
@@ -118,10 +89,36 @@ if (!items || items.length === 0) {
       orders.push(order)
     }
 
+    // === WALLET DEDUCTION ===
+    if (useWallet && walletAmount > 0) {
+      const wallet = await prisma.wallet.findUnique({ where: { userId: req.user.id } })
+
+      if (wallet && wallet.balance >= walletAmount) {
+        await prisma.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: { decrement: walletAmount } }
+        })
+
+        await prisma.walletTransaction.create({
+          data: {
+            userId: req.user.id,
+            walletId: wallet.id,
+            amount: walletAmount,
+            type: 'DEBIT',
+            description: `Payment for Order(s)`,
+            orderId: orders[0]?.id,
+          }
+        })
+      }
+    }
+
     // Clear cart
     await prisma.cartItem.deleteMany({ where: { userId: req.user.id } })
 
-    res.status(201).json({ data: orders, message: 'Orders created successfully.' })
+    res.status(201).json({ 
+      message: 'Orders created successfully.',
+      data: orders 
+    })
   } catch (err) {
     console.error('Create order error:', err)
     res.status(500).json({ message: 'Failed to create order.' })
