@@ -249,6 +249,7 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
         cancelledAt: new Date(),
         refundStatus: 'REFUNDED',           // Changed
         refundAmount: refundAmount,
+        refundedAmount: refundAmount,
         refundedAt: new Date(),
         paymentStatus: 'REFUNDED',
       },

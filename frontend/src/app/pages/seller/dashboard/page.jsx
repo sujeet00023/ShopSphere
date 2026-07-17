@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 'use client'
 /* eslint-disable react-hooks/immutability */
@@ -76,8 +77,7 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
           <h2 className="text-lg font-bold text-gray-900">Process Refund</h2>
         </div>
 
-        <div className="p-6 space-y-4">
-          
+        <div className="p-6 space-y-4">  
           {/* Order info */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Order Details</p>
@@ -87,7 +87,7 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
             </div>
             <p className="text-xs text-gray-500 mt-2">Customer: {order.customer?.name}</p>
           </div>
-
+         
           {/* Refund amount */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase mb-2">Refund Amount</label>
@@ -155,7 +155,6 @@ function RefundModal({ isOpen, order, onConfirm, onCancel, loading }) {
   )
 }
 
-/* ─── ORDER DETAILS MODAL ──────────────────────────────────────────── */
 /* ─── ORDER DETAILS MODAL ──────────────────────────────────────────── */
 function OrderDetailsModal({ isOpen, order, onClose, setRefundModal }) {
   if (!isOpen || !order) return null
@@ -645,8 +644,6 @@ function ProductsSection() {
     </div>
   )
 }
-
-/* ─── ORDERS SECTION ──────────────────────────────────────────── */
 /* ─── ORDERS SECTION ──────────────────────────────────────────── */
 function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   const [orders, setOrders]   = useState([])
@@ -782,6 +779,7 @@ function OrdersSection({ setSelectedOrder, setShowOrderDetails }) {
   )
 }
 
+
 /* ─── CANCELLED ORDERS SECTION ──────────────────────────────────────────── */
 function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrderDetails }) {
   const [cancelledOrders, setCancelledOrders] = useState([])
@@ -796,7 +794,7 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
       const params = { cancelled: true }
       if (filter !== 'all') params.refundStatus = filter
       const { data } = await apiClient.get('/seller/orders', { params })
-      setCancelledOrders(data.data)
+      setCancelledOrders(data.data || [])
     } catch (err) {
       toast.error('Failed to load cancelled orders')
       setCancelledOrders([])
@@ -850,13 +848,13 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                     ❌ Cancelled
                   </span>
                   <span className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                    order.refundStatus === 'REFUND_PROCESSED' || order.refundStatus === 'REFUNDED' 
+                    order.refundStatus === 'REFUNDED' || order.refundStatus === 'REFUND_PROCESSED'
                       ? 'bg-green-50 text-green-700' 
                       : order.refundStatus === 'REFUND_FAILED' 
                       ? 'bg-red-50 text-red-700' 
                       : 'bg-yellow-50 text-yellow-700'
                   }`}>
-                    {order.refundStatus === 'REFUND_PROCESSED' || order.refundStatus === 'REFUNDED' 
+                    {(order.refundStatus === 'REFUNDED' || order.refundStatus === 'REFUND_PROCESSED') 
                       ? '💰 Refunded' 
                       : order.refundStatus === 'REFUND_FAILED' 
                       ? '❌ Failed' 
@@ -880,12 +878,12 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                   <p className="text-sm font-bold text-primary mt-1">₹{order.total?.toLocaleString('en-IN')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Refunded Amount</p>
-                  <p className="text-sm font-bold text-green-600 mt-1">
-                    ₹{(order.refundedAmount || 0).toLocaleString('en-IN')}
-                  </p>
-                </div>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">Refunded Amount</p>
+                <p className="text-sm font-bold text-green-600 mt-1">
+                  ₹{(order.refundedAmount || order.refundAmount || 0).toLocaleString('en-IN')}
+                </p>
               </div>
+            </div>
 
               {/* Refund History */}
               {order.refundHistory && order.refundHistory.length > 0 && (
@@ -895,7 +893,7 @@ function CancelledOrdersSection({ setRefundModal, setSelectedOrder, setShowOrder
                     {order.refundHistory.map((refund, idx) => (
                       <div key={idx} className="bg-gray-50 p-2 rounded text-xs">
                         <p className="font-medium text-gray-900">
-                          ₹{refund.amount.toLocaleString('en-IN')} - {refund.reason || 'Refund'}
+                          ₹{refund.amount?.toLocaleString('en-IN')} - {refund.reason || 'Refund'}
                         </p>
                         <p className="text-gray-500">
                           {new Date(refund.createdAt || refund.processedAt).toLocaleString()} · Status: {refund.status}
@@ -997,8 +995,6 @@ function InventorySection() {
     </div>
   )
 }
-
-/* ─── RETURNS SECTION ──────────────────────────────────────────── */
 /* ─── RETURNS SECTION ──────────────────────────────────────────── */
 function ReturnsSection({ 
   actionModal, 
@@ -1159,8 +1155,7 @@ function ReturnsSection({
 
 /* ─── ANALYTICS SECTION ──────────────────────────────────────────── */
 function AnalyticsSection({ analytics }) {
-  if (!analytics) return <div className="text-center py-12 text-gray-400 text-sm">No analytics data</div>
-
+  if (!analytics) return <div className="text-center py-12 text-gray-400 text-sm">No analytics data</div>  
   const COLORS = ['#2563eb', '#16a34a', '#d97706', '#ef4444', '#2563eb', '#9333ea']
 
   return (
@@ -1173,8 +1168,8 @@ function AnalyticsSection({ analytics }) {
           { label: 'Conversion Rate', value: `${analytics.conversionRate ?? 0}%` },
         ].map(k => (
           <div key={k.label} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{k.label}</p>
-            <p className="text-2xl font-bold text-gray-900 tracking-tight">{k.value}</p>
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{k.label}</p>
+          <p className="text-2xl font-bold text-gray-900 tracking-tight">{k.value}</p>
           </div>
         ))}
       </div>
