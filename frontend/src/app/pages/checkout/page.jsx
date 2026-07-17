@@ -29,9 +29,16 @@ const [cartSummary, setCartSummary] = useState({
 })
  
   
+const [wallet, setWallet] = useState({ balance: 0 })
+const [useWallet, setUseWallet] = useState(true) // Default: use wallet
+const [walletAmountToUse, setWalletAmountToUse] = useState(0)
 const subtotal = cartSummary.subtotal
 const tax = subtotal * 0.1
 const total = subtotal + tax
+
+// Calculate wallet usage
+  const maxWalletUsable = Math.min(wallet.balance, total)
+  const amountToPayWithCard = Math.max(0, total - (useWallet ? walletAmountToUse : 0))
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
 
@@ -57,19 +64,24 @@ const total = subtotal + tax
   const updForm    = (key) => (e) => setFormData(prev    => ({ ...prev, [key]: e.target.value }))
   const updPayment = (key) => (e) => setPaymentData(prev => ({ ...prev, [key]: e.target.value }))
 
-  const fetchCart = async () => {
+// Fetch Cart + Wallet
+const fetchCart = async () => {
   try {
-    const { data } = await apiClient.get('/cart')
+    const [cartRes, walletRes] = await Promise.all([
+      apiClient.get('/cart'),
+      apiClient.get('/users/wallet')
+    ])
 
-    setCartItems(data.data)
-
+    setCartItems(cartRes.data?.data || [])
     setCartSummary({
-      subtotal: data.subtotal,
-      itemCount: data.itemCount
+      subtotal: cartRes.data?.subtotal || 0,
+      itemCount: cartRes.data?.itemCount || 0
     })
 
+    setWallet(walletRes.data?.data || { balance: 0 })
   } catch (err) {
     console.error(err)
+    toast.error('Failed to load checkout data')
   }
 }
 
@@ -86,29 +98,57 @@ if (cartItems === 0) return (
   </div>
 )
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setLoading(true)
-    try {
-      const { data } = await apiClient.post('/orders', {
-        items: cartItems.map(item => ({
-          productId: item.productId ?? item.id,
-          quantity:  item.quantity,
-          price:     item.product?.price ?? item.price,
-        })),
-        shipping: { ...formData },
-      })
-      const orderId = data.data[0].id
-      await apiClient.post('/stripe/create-payment-intent', { orderId })
-      toast.success('Order placed successfully!')
-      await fetchCart()
-      router.push(`/pages/orders/${orderId}`)
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Checkout failed')
-    } finally {
-      setLoading(false)
+async function handleSubmit(e) {
+  e.preventDefault()
+  setLoading(true)
+
+  try {
+    const orderPayload = {
+      items: cartItems.map(item => ({
+        productId: item.productId ?? item.id,
+        quantity: item.quantity,
+        price: item.product?.price ?? item.price,
+      })),
+      shipping: { ...formData },
+      useWallet: useWallet,
+      walletAmount: useWallet ? walletAmountToUse : 0,
     }
+
+    const response = await apiClient.post('/orders', orderPayload)
+
+    // Handle multiple possible response structures
+    let orderId
+
+    if (response.data?.data?.[0]?.id) {
+      orderId = response.data.data[0].id
+    } else if (response.data?.data?.id) {
+      orderId = response.data.data.id
+    } else if (response.data?.id) {
+      orderId = response.data.id
+    } else if (response.data?.orderNumber) {
+      orderId = response.data.orderNumber
+    } else {
+      throw new Error('Could not get order ID from response')
+    }
+
+    // If remaining amount to pay via card
+    if (amountToPayWithCard > 0) {
+      await apiClient.post('/stripe/create-payment-intent', { orderId })
+    }
+
+    toast.success('Order placed successfully!')
+
+    // Refresh data
+    await fetchCart()
+
+    router.push(`/pages/orders/${orderId}`)
+  } catch (err) {
+    console.error('Checkout Error:', err)
+    toast.error(err.response?.data?.message || 'Checkout failed. Please try again.')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
@@ -254,112 +294,148 @@ if (cartItems === 0) return (
                     type="button"
                     onClick={() => setStep(2)}
                     className="submit-btn"
-                  >
+                  > 
                     Continue to Payment →
                   </button>
                 </div>
               )}
 
               {/* ── Step 2: Payment ── */}
-              {step === 2 && (
-                <div className="fade-up d1">
-                  {/* Test card notice */}
-                  <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>🔵</span>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e40af', marginBottom: 4 }}>Test Mode</div>
-                      <div className="mono" style={{ fontSize: 13, color: '#3b5fc0' }}>
-                        4242 4242 4242 4242 · Any future date · Any CVC
-                      </div>
-                    </div>
-                  </div>
+{step === 2 && (
+  <div className="fade-up d1">
+    {/* Wallet Section */}
+    <div className="section-card" style={{ marginBottom: 24, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+      <div className="section-title flex items-center gap-3">
+        💰 Your Wallet
+        <span className="text-2xl font-bold text-emerald-600">
+          ₹{wallet.balance.toLocaleString('en-IN')}
+        </span>
+      </div>
 
-                  <div className="section-card">
-                    <div className="section-title">Card Details</div>
-                    <div style={{ display: 'grid', gap: 16 }}>
+      <div className="mt-4 flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="useWallet"
+          checked={useWallet}
+          onChange={(e) => {
+            setUseWallet(e.target.checked)
+            if (e.target.checked) {
+              setWalletAmountToUse(Math.min(wallet.balance, total))
+            } else {
+              setWalletAmountToUse(0)
+            }
+          }}
+          className="w-5 h-5 accent-emerald-600"
+        />
+        <label htmlFor="useWallet" className="font-medium cursor-pointer">
+          Use wallet balance for this order
+        </label>
+      </div>
 
-                      <Field label="Cardholder Name">
-                        <input
-                          className="field-input"
-                          type="text"
-                          value={paymentData.cardName}
-                          onChange={updPayment('cardName')}
-                          placeholder="Name on card"
-                          required
-                        />
-                      </Field>
+      {useWallet && (
+        <div className="mt-5">
+          <label className="block text-sm font-medium mb-2">Amount to use from wallet</label>
+          <input
+            type="range"
+            min="0"
+            max={Math.min(wallet.balance, total)}
+            step="0.01"
+            value={walletAmountToUse}
+            onChange={(e) => setWalletAmountToUse(parseFloat(e.target.value))}
+            className="w-full accent-emerald-600"
+          />
+          <div className="flex justify-between text-sm mt-1">
+            <span>₹0</span>
+            <span className="font-semibold text-emerald-600">
+              ₹{walletAmountToUse.toFixed(2)}
+            </span>
+            <span>₹{Math.min(wallet.balance, total).toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+    </div>
 
-                      <Field label="Card Number">
-                        <input
-                          className="field-input mono"
-                          type="text"
-                          value={paymentData.cardNumber}
-                          onChange={updPayment('cardNumber')}
-                          placeholder="4242 4242 4242 4242"
-                          maxLength={19}
-                          required
-                        />
-                      </Field>
+    {/* Remaining Amount to Pay */}
+    {amountToPayWithCard > 0 && (
+      <div className="section-card">
+        <div className="section-title">Pay Remaining with Card</div>
+        <div className="text-lg font-semibold text-gray-900 mt-2">
+          ₹{amountToPayWithCard.toFixed(2)}
+        </div>
 
-                      <div className="grid-2">
-                        <Field label="Expiry">
-                          <input
-                            className="field-input mono"
-                            type="text"
-                            value={paymentData.expiry}
-                            onChange={updPayment('expiry')}
-                            placeholder="MM / YY"
-                            maxLength={5}
-                            required
-                          />
-                        </Field>
-                        <Field label="CVC">
-                          <input
-                            className="field-input mono"
-                            type="text"
-                            value={paymentData.cvc}
-                            onChange={updPayment('cvc')}
-                            placeholder="123"
-                            maxLength={4}
-                            required
-                          />
-                        </Field>
-                      </div>
+        {/* Test Card Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6 text-sm">
+          <strong>Test Mode:</strong> Use card number <span className="font-mono">4242 4242 4242 4242</span><br />
+          Any future expiry date • Any CVC
+        </div>
 
-                    </div>
-                  </div>
+        {/* Card Fields */}
+        <div className="mt-6 space-y-5">
+          <Field label="Cardholder Name">
+            <input
+              className="field-input"
+              type="text"
+              value={paymentData.cardName}
+              onChange={updPayment('cardName')}
+              placeholder="John Doe"
+              required
+            />
+          </Field>
 
-                  {/* Security badges */}
-                  <div style={{ display: 'flex', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
-                    {['🔒 SSL Encrypted', '🛡️ Stripe Secured', '✓ PCI Compliant'].map(b => (
-                      <span key={b} style={{ fontSize: 12, color: 'var(--fog)', fontWeight: 500 }}>{b}</span>
-                    ))}
-                  </div>
+          <Field label="Card Number">
+            <input
+              className="field-input mono"
+              type="text"
+              value={paymentData.cardNumber}
+              onChange={updPayment('cardNumber')}
+              placeholder="4242 4242 4242 4242"
+              maxLength={19}
+              required
+            />
+          </Field>
 
-                  <div style={{ display: 'flex', gap: 12 }}>
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      style={{ padding: '16px 24px', border: '1.5px solid var(--stone)', borderRadius: 10, background: 'var(--paper)', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)', transition: 'border-color 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--ink)'}
-                      onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--stone)'}
-                    >
-                      ← Back
-                    </button>
-                   <button
-                      type="submit"
-                    disabled={loading}
-                     className="submit-btn"
-                    style={{ flex: 1 }}
-                   >
-                      {loading
-                        ? <><span className="spinner-sm" /> Processing…</>
-                        : `Place Order · ₹${total.toFixed(2)}`
-                      }
-                  </button>
-                  </div>
-                </div>
-              )}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Expiry Date">
+              <input
+                className="field-input mono"
+                type="text"
+                value={paymentData.expiry}
+                onChange={updPayment('expiry')}
+                placeholder="MM / YY"
+                maxLength={5}
+                required
+              />
+            </Field>
+            <Field label="CVC">
+              <input
+                className="field-input mono"
+                type="text"
+                value={paymentData.cvc}
+                onChange={updPayment('cvc')}
+                placeholder="123"
+                maxLength={4}
+                required
+              />
+            </Field>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Submit Button */}
+    <button
+      type="submit"
+      disabled={loading}
+      className="submit-btn w-full mt-8"
+    >
+      {loading ? (
+        <>Processing Order...</>
+      ) : (
+        `Complete Payment • ₹${total.toFixed(2)}`
+      )}
+    </button>
+  </div>
+)}
             </div>
 
             {/* ── RIGHT: Order Summary ── */}
