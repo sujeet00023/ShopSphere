@@ -172,54 +172,69 @@ router.put('/:id', authMiddleware, requireRole('SELLER', 'ADMIN'), async (req, r
   }
 })
 
-router.delete(
-  '/:id',
-  authMiddleware,
-  requireRole('SELLER', 'ADMIN'),
-  async (req, res) => {
-    try {
-      const product = await prisma.product.findUnique({
-        where: { id: req.params.id }
-      })
+// ── DELETE /api/products/:id 
+router.delete('/:id', authMiddleware, requireRole('SELLER', 'ADMIN'), async (req, res) => {
+  try {
+    const productId = req.params.id
 
-      if (!product) {
-        return res.status(404).json({
-          message: 'Product not found'
-        })
-      }
+    // Check if product exists
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    })
 
-      // Get seller profile
-      const seller = await prisma.sellerProfile.findUnique({
-        where: { userId: req.user.id }
-      })
-
-      // Allow only owner or admin
-      if (
-        req.user.role !== 'ADMIN' &&
-        product.sellerId !== seller?.id
-      ) {
-        return res.status(403).json({
-          message: 'Not authorized'
-        })
-      }
-
-      await prisma.product.delete({
-        where: { id: req.params.id }
-      })
-
-      res.json({
-        success: true,
-        message: 'Product deleted successfully'
-      })
-
-    } catch (error) {
-      console.error(error)
-      res.status(500).json({
-        message: 'Failed to delete product'
-      })
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' })
     }
+
+    // Verify ownership
+    const seller = await prisma.sellerProfile.findUnique({
+      where: { userId: req.user.id }
+    })
+
+    if (req.user.role !== 'ADMIN' && product.sellerId !== seller?.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this product.' })
+    }
+
+    // Use transaction to safely delete related records
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete Order Items referencing this product
+      await tx.orderItem.deleteMany({
+        where: { productId }
+      })
+
+      // 2. Delete Reviews
+      await tx.review.deleteMany({
+        where: { productId }
+      })
+
+      // 3. Delete Wishlist items
+      await tx.wishlistItem.deleteMany({
+        where: { productId }
+      })
+
+      // 4. Delete Cart items (if any)
+      await tx.cartItem.deleteMany({
+        where: { productId }
+      })
+
+      // 5. Finally delete the product
+      await tx.product.delete({
+        where: { id: productId }
+      })
+    })
+
+    res.json({
+      success: true,
+      message: 'Product and all related data deleted successfully.'
+    })
+
+  } catch (error) {
+    console.error('Delete product error:', error)
+    res.status(500).json({ 
+      message: 'Failed to delete product. It may still be referenced in active orders.' 
+    })
   }
-)
+})
 
 // ── GET /api/products/seller/dashboard (seller's products) ─────────────────
 router.get('/seller/products', authMiddleware, requireRole('SELLER'), async (req, res) => {
