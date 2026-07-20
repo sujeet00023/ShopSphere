@@ -334,17 +334,20 @@ export default function SellerDashboard() {
   const [showOrderDetails, setShowOrderDetails] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [showNotifications,setShowNotifications] = useState(false)
+const [showNotifications,setShowNotifications] = useState(false)
 
   //Socket.IO
   const [socket, setSocket] = useState(null)
 
   // Socket.IO Setup
   useEffect(() => {
-  const s = io("http://localhost:5000", {
-    reconnection: true,
-    reconnectionAttempts: 5,
-  })
+ const s = io(
+  process.env.NEXT_PUBLIC_SOCKET_URL,
+  {
+    reconnection:true,
+    reconnectionAttempts:5,
+  }
+)
 
   setSocket(s)
 
