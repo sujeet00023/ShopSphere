@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 'use client'
@@ -11,6 +12,7 @@ import {
 } from 'recharts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
+import io from 'socket.io-client'
 
 /* ─── CONFIRMATION MODAL ──────────────────────────────────────────── */
 function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, confirmText, cancelText, isDanger }) {
@@ -330,6 +332,86 @@ export default function SellerDashboard() {
   const [refundLoading, setRefundLoading] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showOrderDetails, setShowOrderDetails] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications,setShowNotifications] = useState(false)
+
+  //Socket.IO
+  const [socket, setSocket] = useState(null)
+
+  // Socket.IO Setup
+  useEffect(() => {
+  const s = io("http://localhost:5000", {
+    reconnection: true,
+    reconnectionAttempts: 5,
+  })
+
+  setSocket(s)
+
+  s.on("connect", () => {
+    console.log("✅ Connected", s.id)
+  })
+s.on("newOrder", (data) => {
+
+ /*  console.log("🛒 NEW ORDER RECEIVED:", data)
+ */
+  const notification = {
+    id: Date.now(),
+    title: "New Order Received",
+    message: `Order #${data.orderNumber} • ₹${data.total}`,
+    createdAt: new Date().toLocaleTimeString(),
+    data
+  }
+
+  setNotifications(prev => {
+  return [notification, ...prev].slice(0, 20)
+})
+
+  setUnreadCount(prev => prev + 1)
+
+  toast.success(
+    `New Order #${data.orderNumber} received ₹${data.total}`
+  )
+
+})
+
+  return () => s.disconnect()
+
+}, [])
+
+useEffect(() => {
+  console.log("Socket:", socket)
+  console.log("Dashboard:", dashboard)
+  console.log("Store ID:", dashboard?.store?.id)
+  console.log("Socket connected:", socket?.connected)
+
+  if (!socket) {
+    console.log("❌ No socket")
+    return
+  }
+
+  if (!dashboard?.store?.id) {
+    console.log("❌ No store id")
+    return
+  }
+
+  if (!socket.connected) {
+    console.log("❌ Socket not connected yet")
+    return
+  }
+
+  console.log("✅ Emitting joinSellerRoom:", dashboard.store.id)
+  console.log("STORE OBJECT:", dashboard?.store)
+
+  socket.emit(
+  "joinSellerRoom",
+  dashboard.store.id,
+  (response) => {
+    console.log("Server ACK:", response)
+  }
+)
+
+}, [socket, dashboard])
 
   useEffect(() => { fetchDashboard() }, [])
 
@@ -453,9 +535,91 @@ export default function SellerDashboard() {
             {navItems.find(n => n.id === activeSection)?.label || 'Dashboard'}
           </h1>
           <div className="flex items-center gap-2">
-            <button className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-primary hover:border-primary hover:bg-blue-50 transition-all">
-              🔔
+           <div className="relative">
+
+            <button
+            onClick={()=>{
+              setShowNotifications(!showNotifications)
+              setUnreadCount(0)
+            }}
+            className="relative w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center"
+            >
+            🔔
+
+
+            {unreadCount > 0 && (
+            <span className="
+            absolute -top-1 -right-1
+            bg-red-500 text-white
+            text-[10px]
+            w-5 h-5
+            rounded-full
+            flex items-center justify-center
+            ">
+            {unreadCount}
+            </span>
+            )}
+
             </button>
+
+
+              {showNotifications && (
+
+              <div className="
+              absolute right-0 mt-3
+              w-80
+              bg-white
+              border
+              rounded-xl
+              shadow-lg
+              z-50
+              ">
+
+              <div className="p-3 border-b font-semibold">
+              Notifications
+              </div>
+
+
+              {notifications.length === 0 ? (
+
+              <p className="p-4 text-sm text-gray-400">
+              No notifications
+              </p>
+
+              ):(
+
+
+              notifications.map(item=>(
+
+              <div
+              key={item.id}
+              className="
+              p-3
+              border-b
+              hover:bg-gray-50
+              "
+              >
+
+              <p className="text-sm font-semibold">
+              {item.title}
+              </p>
+
+
+              <p className="text-xs text-gray-500">
+              {item.message}
+              </p>
+
+              </div>
+
+              ))
+
+              )}
+
+              </div>
+
+              )}
+
+</div>
             <span className="text-[12px] font-medium text-white bg-primary rounded-full px-3 py-1">
               Live
             </span>

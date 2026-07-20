@@ -1,6 +1,8 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole } from '../middleware/auth.js'
+import { status } from 'init'
+import io from 'socket.io-client'
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -118,6 +120,27 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(201).json({ 
       message: 'Orders created successfully.',
       data: orders 
+    })
+
+    //=== REAL-TIME NOTIFICATION ====
+    const io = req.app.get('io')
+
+    // NOtify Selller
+    orders.forEach(order => {
+      io.to(`seller_${order.sellerId}`).emit('newOrder', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        total: order.total,
+        customerName: order.customer?.name || 'Customer',
+        status: order.status
+      })
+       //Notify Customer
+      io.to(`user_${order.customerId}`).emit('orderUpdated', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        status: 'PENDING',
+        message: 'Your order has been placed successfully!'
+      })
     })
   } catch (err) {
     console.error('Create order error:', err)
@@ -249,7 +272,7 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
         cancelledAt: new Date(),
         refundStatus: 'REFUNDED',           // Changed
         refundAmount: refundAmount,
-        refundedAmount: refundAmount,
+       /*  refundedAmount: refundAmount, */
         refundedAt: new Date(),
         paymentStatus: 'REFUNDED',
       },
@@ -299,6 +322,26 @@ router.patch('/:id/cancel', authMiddleware, async (req, res) => {
       message: 'Order cancelled successfully. Full amount has been credited to your wallet.',
       data: updatedOrder
     })
+
+  //==== REAL-TIME NOTIFICATION===
+  const io = req.app.get('io')
+
+  io.to(`seller_${updatedOrder.sellerId}`).emit('orderUpdated',{
+    orderId: updatedOrder.id,
+    orderNumber: updatedOrder.orderNumber,
+    status: 'CANCELLED',
+    message: 'A customer cancelled their order.'
+  })
+
+  // NOtify Customer
+  io.to(`user_${updatedOrder.customerId}`).emit('orderUpdated', {
+    orderId:updatedOrder.id,
+    orderNumber: updatedOrder.orderNumber,
+    status: 'CANCELLED',
+    message: 'Your order has been cancelled and refunded processed'
+  })
+
+
   } catch (err) {
     console.error('Cancel Order Error:', err)
     res.status(500).json({ message: 'Failed to cancel order.' })

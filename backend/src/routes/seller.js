@@ -73,6 +73,7 @@ const completedOrders = await prisma.order.count({
 
     const dashboard = {
       store: {
+        id: seller.id,
         name: seller.storeName,
         description: seller.storeDesc,
         rating: seller.rating,

@@ -4,6 +4,14 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import { PrismaClient } from '@prisma/client'
+import {createServer} from 'http'
+import {Server} from 'socket.io'
+import {kill} from 'cross-port-Killer'
+
+//kill the server 
+const PORT = process.env.PORT || 5000
+
+await kill(PORT).catch(() =>{})
 
 // Load environment variables
 dotenv.config()
@@ -11,6 +19,20 @@ dotenv.config()
 // Initialize Express app
 const app = express()
 const prisma = new PrismaClient()
+
+//Create HTTP server for socket.IO
+const httpServer = createServer(app)
+
+//Initialize Socket.IO
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    credentials: true,
+  },
+})
+
+//Make io available globally
+app.set('io',io)
 
 // ══════════════════════════════════════════════════════════════════════
 // MIDDLEWARE SETUP
@@ -29,6 +51,29 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }))
 
 // Logging middleware
 app.use(morgan('combined'))
+
+// ══════════════════════════════════════════════════════════════════════
+// SOCKET.IO CONNECTION HANDLER
+// ══════════════════════════════════════════════════════════════════════
+io.on('connection', (socket) => {
+  console.log(`🟢 User connected: ${socket.id}`)
+
+ socket.on("joinSellerRoom", (sellerId, callback) => {
+  console.log("📥 Received joinSellerRoom:", sellerId)
+
+  socket.join(`seller_${sellerId}`)
+
+  console.log(`✅ Joined room seller_${sellerId}`)
+
+  if (callback) {
+    callback({ success: true })
+  }
+})
+
+  socket.on('disconnect', () => {
+    console.log(`🔴 User disconnected: ${socket.id}`)
+  })
+})
 
 // ══════════════════════════════════════════════════════════════════════
 // IMPORT AUTH MIDDLEWARE
@@ -170,17 +215,16 @@ app.use((err, req, res, next) => {
 // DATABASE CONNECTION & SERVER START
 // ══════════════════════════════════════════════════════════════════════
 
-const PORT = process.env.PORT || 5000
-
 async function startServer() {
   try {
     // Test database connection
     await prisma.$connect()
     console.log('✅ Database connected successfully')
 
-    // Start server
-    app.listen(PORT, () => {
-    })
+     httpServer.listen(PORT, () =>{
+      console.log(`🚀 Server running on http://localhost:${PORT}`)
+      console.log(`📡 Socket.IO ready for real-time updates`)
+     })  
   } catch (error) {
     console.error('❌ Failed to start server:', error)
     process.exit(1)
