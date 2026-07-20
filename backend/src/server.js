@@ -6,12 +6,9 @@ import morgan from 'morgan'
 import { PrismaClient } from '@prisma/client'
 import {createServer} from 'http'
 import {Server} from 'socket.io'
-import {kill} from 'cross-port-Killer'
 
 //kill the server 
 const PORT = process.env.PORT || 5000
-
-await kill(PORT).catch(() =>{})
 
 // Load environment variables
 dotenv.config()
