@@ -1,7 +1,6 @@
 import express from 'express'
 import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole } from '../middleware/auth.js'
-import { status } from 'init'
 import io from 'socket.io-client'
 
 const router = express.Router()
